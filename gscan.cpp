@@ -38,13 +38,10 @@ typedef enum {
     GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN,
     GSCAN_ATTRIBUTE_REPORT_THRESHOLD,
     GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE,
-    GSCAN_ATTRIBUTE_DWELL_TIME,
-    GSCAN_ATTRIBUTE_SCAN_TYPE,
     GSCAN_ATTRIBUTE_BAND = GSCAN_ATTRIBUTE_BUCKETS_BAND,
 
     GSCAN_ATTRIBUTE_ENABLE_FEATURE = 20,
     GSCAN_ATTRIBUTE_SCAN_RESULTS_COMPLETE,              /* indicates no more results */
-    GSCAN_ENABLE_FULL_SCAN_RESULTS,
     GSCAN_ATTRIBUTE_REPORT_EVENTS,
 
     /* remaining reserved for additional attributes */
@@ -369,47 +366,6 @@ public:
         return createFeatureRequest(request, SLSI_NL80211_VENDOR_SUBCMD_DEL_GSCAN);
     }
 
-    int enableFullScanResultsIfRequired() {
-        /* temporary workaround till we have full support for per bucket scans */
-
-        ALOGI("enabling full scan results if needed");
-        int nBuckets = 0;
-        for (int i = 0; i < mParams->num_buckets; i++) {
-            if (mParams->buckets[i].report_events == 2) {
-                nBuckets++;
-            }
-        }
-
-        if (mGlobalFullScanBuckets == 0 && nBuckets != 0) {
-            
-           ALOGI("full scan results were requested ");
-           ALOGI("mGlobalFullScanBuckets = %d, nBuckets = %d", mGlobalFullScanBuckets, nBuckets);
-		    mLocalFullScanBuckets = nBuckets;
-        mGlobalFullScanBuckets += nBuckets;
-		registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
-
-        } else {
-            ALOGI("mGlobalFullScanBuckets = %d, nBuckets = %d", mGlobalFullScanBuckets, nBuckets);
-
-        }
-
-        return WIFI_SUCCESS;       
-    }
-    int disableFullScanResultsIfRequired() {
-        /* temporary workaround till we have full support for per bucket scans */
-
-        if (mLocalFullScanBuckets == 0) {
-            return WIFI_SUCCESS;
-        }
-
-        mGlobalFullScanBuckets -= mLocalFullScanBuckets;
-        if (mGlobalFullScanBuckets == 0) {
-            
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
-        }
-
-        return WIFI_SUCCESS;
-    }
     int start() {
         ALOGD(" sending scan req to driver");
         WifiRequest request(familyId(), ifaceId());
@@ -422,12 +378,18 @@ public:
 
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
-        result = enableFullScanResultsIfRequired();
-		if ( result == WIFI_SUCCESS)
-		{
-		   
-		}
 
+        int nBuckets = 0;
+        for (int i = 0; i < mParams->num_buckets; i++) {
+            if (mParams->buckets[i].report_events == 2) {
+                nBuckets++;
+            }
+        }
+
+        if (nBuckets != 0) {
+           ALOGI("Full scan requested with nBuckets = %d", nBuckets);
+           registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
+        }
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to start scan; result = %d", result);
@@ -456,7 +418,7 @@ public:
 
         unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
         unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
-        disableFullScanResultsIfRequired();
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
 
         return WIFI_SUCCESS;
     }
@@ -474,6 +436,7 @@ public:
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = event.get_vendor_data_len();
         int event_id = event.get_vendor_subcmd();
+	 ALOGD("handleEvent, event_id = %d", event_id);
 
         if(event_id == GSCAN_EVENT_COMPLETE_SCAN) {
             if (vendor_data == NULL || len != 4) {
@@ -643,13 +606,6 @@ public:
 
         ALOGD("Id = %0x, subcmd = %d", id, subcmd);
 
-        /*
-        if (subcmd != GSCAN_SUBCMD_SCAN_RESULTS) {
-            ALOGE("Invalid response to GetScanResultsCommand; ignoring it");
-            return NL_SKIP;
-        }
-        */
-
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
@@ -788,6 +744,7 @@ public:
         }
 
         ALOGD("Successfully set %d APs in the hotlist", mParams.num_ap);
+
         result = createFeatureRequest(request, SLSI_NL80211_VENDOR_SUBCMD_ADD_GSCAN);
         if (result < 0) {
             return result;
@@ -797,13 +754,15 @@ public:
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
 
         result = requestResponse(request);
-        if (result < 0) {
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to start scan; result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
             return result;
         }
 
         ALOGD("successfully restarted the scan");
+
         return result;
     }
 
