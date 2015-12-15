@@ -436,7 +436,7 @@ public:
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = event.get_vendor_data_len();
         int event_id = event.get_vendor_subcmd();
-	 ALOGD("handleEvent, event_id = %d", event_id);
+        ALOGD("handleEvent, event_id = %d", event_id);
 
         if(event_id == GSCAN_EVENT_COMPLETE_SCAN) {
             if (vendor_data == NULL || len != 4) {
@@ -706,7 +706,7 @@ public:
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(GSCAN_ATTRIBUTE_CHANNEL_NUMBER, mParams.ap[i].channel);
+            result = request.put_u16(GSCAN_ATTRIBUTE_CHANNEL_NUMBER, mParams.ap[i].channel);
             if (result < 0) {
                 return result;
             }
@@ -745,23 +745,8 @@ public:
 
         ALOGD("Successfully set %d APs in the hotlist", mParams.num_ap);
 
-        result = createFeatureRequest(request, SLSI_NL80211_VENDOR_SUBCMD_ADD_GSCAN);
-        if (result < 0) {
-            return result;
-        }
-
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
-
-        result = requestResponse(request);
-        if (result != WIFI_SUCCESS) {
-            ALOGE("failed to start scan; result = %d", result);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
-            return result;
-        }
-
-        ALOGD("successfully restarted the scan");
 
         return result;
     }
@@ -912,6 +897,10 @@ public:
             if (result < 0) {
                 return result;
             }
+            result = request.put_u16(GSCAN_ATTRIBUTE_CHANNEL, mParams.ap[i].channel);
+            if (result < 0) {
+                return result;
+            }
             request.attr_end(attr2);
         }
 
@@ -944,21 +933,8 @@ public:
             ALOGD("failed to set significant wifi change %d", result);
             return result;
         }
-
-        result = createFeatureRequest(request, SLSI_NL80211_VENDOR_SUBCMD_ADD_GSCAN);
-        if (result < 0) {
-            return result;
-        }
-
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS);
 
-        result = requestResponse(request);
-        if (result < 0) {
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS);
-            return result;
-        }
-
-        ALOGD("successfully restarted the scan");
         return result;
     }
 
@@ -1011,9 +987,17 @@ public:
         for (int i = 0; i < num; i++) {
             memcpy(mResultsBuffer[i].bssid, ci[i].bssid, sizeof(mac_addr));
             mResultsBuffer[i].channel = ci[i].channel;
-            mResultsBuffer[i].num_rssi = 8;
-            for (int j = 0; j < mResultsBuffer[i].num_rssi; j++)
+			/* Driver sends N samples and the rest 8-N are filled 0x7FFF
+			 * N = no of rssi samples to average sent in significant change request. */
+            int num_rssi = 0;
+            for (int j = 0; j < 8; j++) {
+                if (ci[i].rssi_history[j] == 0x7FFF) {
+                    num_rssi = j;
+                    break;
+                }
                 mResultsBuffer[i].rssi[j] = (int) ci[i].rssi_history[j];
+            }
+            mResultsBuffer[i].num_rssi = num_rssi;
             mResults[i] = reinterpret_cast<wifi_significant_change_result *>(&(mResultsBuffer[i]));
         }
 
