@@ -3,6 +3,9 @@
 # Copyright (c) 2012 - 2013 Samsung Electronics Co., Ltd
 #
 #############################################################################
+
+ifeq ($(CONFIG_SAMSUNG_SCSC_WIFIBT),true)
+
 LOCAL_PATH := $(call my-dir)
 
 # Make the HAL library
@@ -27,3 +30,5 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE := libwifi-hal-slsi
 
 include $(BUILD_STATIC_LIBRARY)
+
+endif
