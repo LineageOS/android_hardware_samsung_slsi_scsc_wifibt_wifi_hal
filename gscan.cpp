@@ -302,7 +302,7 @@ public:
             return result;
         }
 
-        result = request.put_u32(GSCAN_ATTRIBUTE_REPORT_THRESHOLD, mParams->report_threshold);
+        result = request.put_u32(GSCAN_ATTRIBUTE_REPORT_THRESHOLD, mParams->report_threshold_percent);
         if (result < 0) {
             return result;
         }
@@ -434,7 +434,7 @@ public:
         event.log();
 
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
-        int len = event.get_vendor_data_len();
+        unsigned int len = event.get_vendor_data_len();
         int event_id = event.get_vendor_subcmd();
         ALOGD("handleEvent, event_id = %d", event_id);
 
@@ -531,7 +531,7 @@ wifi_error wifi_stop_gscan(wifi_request_id id, wifi_interface_handle iface)
 }
 
 class GetScanResultsCommand : public WifiCommand {
-    wifi_scan_result *mResults;
+    wifi_cached_scan_results *mResults;
     int mMax;
     int *mNum;
     int mRetrieved;
@@ -539,7 +539,7 @@ class GetScanResultsCommand : public WifiCommand {
     int mCompleted;
 public:
     GetScanResultsCommand(wifi_interface_handle iface, byte flush,
-            wifi_scan_result *results, int max, int *num)
+            wifi_cached_scan_results *results, int max, int *num)
         : WifiCommand(iface, -1), mResults(results), mMax(max), mNum(num),
                 mRetrieved(0), mFlush(flush), mCompleted(0)
     { }
@@ -652,8 +652,7 @@ public:
 };
 
 wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface, byte flush,
-        int max, wifi_scan_result *results, int *num) {
-
+        int max, wifi_cached_scan_results *results, int *num) {
     ALOGD("Getting cached scan results, iface handle = %p, num = %d", iface, *num);
 
     GetScanResultsCommand *cmd = new GetScanResultsCommand(iface, flush, results, max, num);
@@ -689,7 +688,7 @@ public:
         }
 
         struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_HOTLIST_BSSIDS);
-        for (int i = 0; i < mParams.num_ap; i++) {
+        for (int i = 0; i < mParams.num_bssid; i++) {
             nlattr *attr2 = request.attr_start(GSCAN_ATTRIBUTE_HOTLIST_ELEM);
             if (attr2 == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
@@ -703,10 +702,6 @@ public:
                 return result;
             }
             result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_LOW, mParams.ap[i].low);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u16(GSCAN_ATTRIBUTE_CHANNEL_NUMBER, mParams.ap[i].channel);
             if (result < 0) {
                 return result;
             }
@@ -728,7 +723,7 @@ public:
     }
 
     int start() {
-        ALOGD("Executing hotlist setup request, num = %d", mParams.num_ap);
+        ALOGD("Executing hotlist setup request, num = %d", mParams.num_bssid);
         WifiRequest request(familyId(), ifaceId());
         int result = createSetupRequest(request);
         if (result < 0) {
@@ -743,7 +738,7 @@ public:
             return result;
         }
 
-        ALOGD("Successfully set %d APs in the hotlist", mParams.num_ap);
+        ALOGD("Successfully set %d APs in the hotlist", mParams.num_bssid);
 
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
@@ -879,7 +874,7 @@ public:
 
         struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS);
 
-        for (int i = 0; i < mParams.num_ap; i++) {
+        for (int i = 0; i < mParams.num_bssid; i++) {
 
             nlattr *attr2 = request.attr_start(i);
             if (attr2 == NULL) {
@@ -894,10 +889,6 @@ public:
                 return result;
             }
             result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_LOW, mParams.ap[i].low);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u16(GSCAN_ATTRIBUTE_CHANNEL, mParams.ap[i].channel);
             if (result < 0) {
                 return result;
             }
@@ -978,7 +969,7 @@ public:
         typedef struct {
             uint16_t channel;
             mac_addr bssid;
-            s16 rssi_history[8];
+            int16_t rssi_history[8];
         } ChangeInfo;
 
         int num = min(len / sizeof(ChangeInfo), MAX_RESULTS);
