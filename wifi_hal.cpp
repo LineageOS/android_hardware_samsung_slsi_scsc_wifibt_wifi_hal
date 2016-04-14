@@ -138,9 +138,16 @@ wifi_error wifi_initialize(wifi_handle *handle)
     memset(info, 0, sizeof(*info));
 
     ALOGI("Creating socket");
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, info->cleanup_socks) == -1) {
+        ALOGE("Could not create cleanup sockets");
+        free(info);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
     struct nl_sock *cmd_sock = wifi_create_nl_socket(WIFI_HAL_CMD_SOCK_PORT);
     if (cmd_sock == NULL) {
         ALOGE("Could not create handle");
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -148,12 +155,16 @@ wifi_error wifi_initialize(wifi_handle *handle)
     if (event_sock == NULL) {
         ALOGE("Could not create handle");
         nl_socket_free(cmd_sock);
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
     struct nl_cb *cb = nl_socket_get_cb(event_sock);
     if (cb == NULL) {
         ALOGE("Could not create handle");
+        nl_socket_free(cmd_sock);
+        nl_socket_free(event_sock);
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -229,6 +240,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
 
     if (info->cmd_sock != 0) {
+        close(info->cleanup_socks[0]);
+        close(info->cleanup_socks[1]);
         nl_socket_free(info->cmd_sock);
         nl_socket_free(info->event_sock);
         info->cmd_sock = NULL;
@@ -245,10 +258,59 @@ static void internal_cleaned_up_handler(wifi_handle handle)
 void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 {
     hal_info *info = getHalInfo(handle);
-    info->cleaned_up_handler = handler;
-    info->clean_up = true;
+    char buf[64];
 
-    ALOGI("Wifi cleanup completed");
+    info->cleaned_up_handler = handler;
+    if (write(info->cleanup_socks[0], "Exit", 4) < 1) {
+        ALOGE("could not write to the cleanup socket");
+    } else {
+        // Listen to the response
+        // Hopefully we dont get errors or get hung up
+        // Not much can be done in that case, but assume that
+        // it has rx'ed the Exit message to exit the thread.
+        // As a fallback set the cleanup flag to TRUE
+        memset(buf, 0, sizeof(buf));
+        int result = read(info->cleanup_socks[0], buf, sizeof(buf));
+        ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result, errno);
+        if (strncmp(buf, "Done", 4) == 0) {
+            ALOGE("Event processing terminated");
+        } else {
+            ALOGD("Rx'ed %s", buf);
+        }
+    }
+    info->clean_up = true;
+    pthread_mutex_lock(&info->cb_lock);
+
+    int bad_commands = 0;
+
+    for (int i = 0; i < info->num_event_cb; i++) {
+        cb_info *cbi = &(info->event_cb[i]);
+        WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
+    }
+
+    while (info->num_cmd > bad_commands) {
+        int num_cmd = info->num_cmd;
+        cmd_info *cmdi = &(info->cmd[bad_commands]);
+        WifiCommand *cmd = cmdi->cmd;
+        if (cmd != NULL) {
+            pthread_mutex_unlock(&info->cb_lock);
+            cmd->cancel();
+            pthread_mutex_lock(&info->cb_lock);
+            /* release reference added when command is saved */
+            cmd->releaseRef();
+            if (num_cmd == info->num_cmd) {
+                bad_commands++;
+            }
+        }
+    }
+
+    for (int i = 0; i < info->num_event_cb; i++) {
+        cb_info *cbi = &(info->event_cb[i]);
+        WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
+        ALOGE("Leaked command %p", cmd);
+    }
+    pthread_mutex_unlock(&info->cb_lock);
+    internal_cleaned_up_handler(handle);
 }
 
 static int internal_pollin_handler(wifi_handle handle)
@@ -274,40 +336,49 @@ void wifi_event_loop(wifi_handle handle)
         info->in_event_loop = true;
     }
 
-    pollfd pfd;
-    memset(&pfd, 0, sizeof(pfd));
+    pollfd pfd[2];
+    memset(&pfd[0], 0, sizeof(pollfd) * 2);
 
-    pfd.fd = nl_socket_get_fd(info->event_sock);
-    pfd.events = POLLIN;
+    pfd[0].fd = nl_socket_get_fd(info->event_sock);
+    pfd[0].events = POLLIN;
+    pfd[1].fd = info->cleanup_socks[1];
+    pfd[1].events = POLLIN;
 
-    /* TODO: Add support for timeouts */
+    char buf[2048];
 
     do {
         int timeout = -1;                   /* Infinite timeout */
-        pfd.revents = 0;
-         ALOGI("Polling socket");
-        int result = poll(&pfd, 1, -1);
+        pfd[0].revents = 0;
+        pfd[1].revents = 0;
+        int result = poll(pfd, 2, timeout);
         if (result < 0) {
-            ALOGE("Error polling socket");
-        } else if (pfd.revents & POLLERR) {
+        } else if (pfd[0].revents & POLLERR) {
             ALOGE("POLL Error; error no = %d", errno);
-            char buf[2048];
-            int result2 = read(pfd.fd, buf, sizeof(buf));
+            int result2 = read(pfd[0].fd, buf, sizeof(buf));
             ALOGE("Read after POLL returned %d, error no = %d", result2, errno);
-        } else if (pfd.revents & POLLHUP) {
+        } else if (pfd[0].revents & POLLHUP) {
             ALOGE("Remote side hung up");
             break;
-        } else if (pfd.revents & POLLIN) {
-             ALOGI("Found some events!!!");
+        } else if (pfd[0].revents & POLLIN) {
             internal_pollin_handler(handle);
+        } else if (pfd[1].revents & POLLIN) {
+            memset(buf, 0, sizeof(buf));
+            int result2 = read(pfd[1].fd, buf, sizeof(buf));
+            ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result2, errno);
+            if (strncmp(buf, "Exit", 4) == 0) {
+                ALOGD("Got a signal to exit!!!");
+                if (write(pfd[1].fd, "Done", 4) < 1) {
+                    ALOGE("could not write to the cleanup socket");
+                }
+                break;
+            } else {
+                ALOGD("Rx'ed %s on the cleanup socket\n", buf);
+            }
         } else {
-            ALOGE("Unknown event - %0x", pfd.revents);
+            ALOGE("Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
         }
     } while (!info->clean_up);
-
-
-    ALOGI("Cleaning up");
-    internal_cleaned_up_handler(handle);
+    ALOGI("Exit %s", __FUNCTION__);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -372,8 +443,8 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
             }
 
             pthread_mutex_unlock(&info->cb_lock);
-
-            (*cb_func)(msg, cb_arg);
+            if (cb_func)
+                (*cb_func)(msg, cb_arg);
             if (cmd != NULL) {
                 cmd->releaseRef();
             }
