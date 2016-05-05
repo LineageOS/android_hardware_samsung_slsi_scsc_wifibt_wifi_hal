@@ -121,6 +121,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
     fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
     fn->wifi_set_nodfs_flag = wifi_set_nodfs_flag;
+    fn->wifi_start_sending_offloaded_packet = wifi_start_sending_offloaded_packet;
+    fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
     return WIFI_SUCCESS;
 }
 
@@ -421,7 +423,7 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     bool dispatched = false;
 
     pthread_mutex_lock(&info->cb_lock);
-    
+
     ALOGI("Number of events %d", info->num_event_cb);
 
     for (int i = 0; i < info->num_event_cb; i++) {
