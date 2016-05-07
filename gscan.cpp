@@ -78,6 +78,10 @@ typedef enum {
     GSCAN_ATTRIBUTE_MIN_BREACHING,
     GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS,
 
+    GSCAN_ATTRIBUTE_BUCKET_STEP_COUNT = 70,
+    GSCAN_ATTRIBUTE_BUCKET_EXPONENT,
+    GSCAN_ATTRIBUTE_BUCKET_MAX_PERIOD,
+
     GSCAN_ATTRIBUTE_MAX
 
 } GSCAN_ATTRIBUTE;
@@ -344,6 +348,24 @@ public:
 
             result = request.put_u32(GSCAN_ATTRIBUTE_BUCKET_NUM_CHANNELS,
                     mParams->buckets[i].num_channels);
+            if (result < 0) {
+                return result;
+            }
+
+            result = request.put_u32(GSCAN_ATTRIBUTE_BUCKET_EXPONENT,
+                    mParams->buckets[i].exponent);
+            if (result < 0) {
+                return result;
+            }
+
+            result = request.put_u32(GSCAN_ATTRIBUTE_BUCKET_MAX_PERIOD,
+                    mParams->buckets[i].max_period);
+            if (result < 0) {
+                return result;
+            }
+
+            result = request.put_u32(GSCAN_ATTRIBUTE_BUCKET_STEP_COUNT,
+                    mParams->buckets[i].step_count);
             if (result < 0) {
                 return result;
             }
