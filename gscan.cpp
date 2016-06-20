@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <stddef.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netlink/genl/genl.h>
@@ -85,6 +86,27 @@ typedef enum {
     GSCAN_ATTRIBUTE_MAX
 
 } GSCAN_ATTRIBUTE;
+
+typedef enum {
+    EPNO_ATTRIBUTE_SSID_LIST,
+    EPNO_ATTRIBUTE_SSID_NUM,
+    EPNO_ATTRIBUTE_SSID,
+    EPNO_ATTRIBUTE_SSID_LEN,
+    EPNO_ATTRIBUTE_RSSI,
+    EPNO_ATTRIBUTE_FLAGS,
+    EPNO_ATTRIBUTE_AUTH,
+    EPNO_ATTRIBUTE_MAX
+} EPNO_ATTRIBUTE;
+
+typedef enum {
+    EPNO_ATTRIBUTE_HS_PARAM_LIST,
+    EPNO_ATTRIBUTE_HS_NUM,
+    EPNO_ATTRIBUTE_HS_ID,
+    EPNO_ATTRIBUTE_HS_REALM,
+    EPNO_ATTRIBUTE_HS_CONSORTIUM_IDS,
+    EPNO_ATTRIBUTE_HS_PLMN,
+    EPNO_ATTRIBUTE_HS_MAX
+} EPNO_HS_ATTRIBUTE;
 
 
 class GetCapabilitiesCommand : public WifiCommand
@@ -1081,4 +1103,313 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interf
     }
 
     return WIFI_ERROR_INVALID_ARGS;
+}
+
+class ePNOCommand : public WifiCommand
+{
+private:
+    wifi_epno_network *ssid_list;
+    int               num_ssid;
+    wifi_epno_handler mHandler;
+    wifi_scan_result  mResults;
+public:
+    ePNOCommand(wifi_interface_handle handle, int id,
+            int num_networks, wifi_epno_network *networks, wifi_epno_handler handler)
+        : WifiCommand(handle, id), mHandler(handler)
+    {
+        ssid_list = networks;
+        num_ssid = num_networks;
+    }
+
+    int createSetupRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_EPNO_LIST);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+
+        result = request.put_u8(EPNO_ATTRIBUTE_SSID_NUM, num_ssid);
+        if (result < 0) {
+            return result;
+        }
+
+        struct nlattr * attr = request.attr_start(EPNO_ATTRIBUTE_SSID_LIST);
+        for (int i = 0; i < num_ssid; i++) {
+            nlattr *attr2 = request.attr_start(i);
+            if (attr2 == NULL) {
+                return WIFI_ERROR_OUT_OF_MEMORY;
+            }
+            result = request.put(EPNO_ATTRIBUTE_SSID, ssid_list[i].ssid, 32);
+            ALOGI("ePNO [SSID:%s rssi_thresh:%d flags:%d auth:%d]", ssid_list[i].ssid,
+                (signed char)ssid_list[i].rssi_threshold, ssid_list[i].flags,
+                ssid_list[i].auth_bit_field);
+            if (result < 0) {
+                return result;
+            }
+            result = request.put_u8(EPNO_ATTRIBUTE_SSID_LEN, strlen(ssid_list[i].ssid));
+            if (result < 0) {
+                return result;
+            }
+
+            result = request.put_u8(EPNO_ATTRIBUTE_RSSI, ssid_list[i].rssi_threshold);
+            if (result < 0) {
+                return result;
+            }
+            result = request.put_u8(EPNO_ATTRIBUTE_FLAGS, ssid_list[i].flags);
+            if (result < 0) {
+                return result;
+            }
+            result = request.put_u8(EPNO_ATTRIBUTE_AUTH, ssid_list[i].auth_bit_field);
+            if (result < 0) {
+                return result;
+            }
+            request.attr_end(attr2);
+        }
+
+        request.attr_end(attr);
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        ALOGI("ePNO num_network=%d", num_ssid);
+        WifiRequest request(familyId(), ifaceId());
+        int result = createSetupRequest(request);
+        if (result < 0) {
+            return result;
+        }
+
+        result = requestResponse(request);
+        if (result < 0) {
+            ALOGI("Failed: ePNO setup request, result = %d", result);
+            unregisterVendorHandler(GOOGLE_OUI, WIFI_EPNO_EVENT);
+            return result;
+        }
+
+        ALOGI("Successfully set %d SSIDs for ePNO", num_ssid);
+        registerVendorHandler(GOOGLE_OUI, WIFI_EPNO_EVENT);
+        return result;
+    }
+
+    virtual int cancel() {
+        /* unregister event handler */
+        unregisterVendorHandler(GOOGLE_OUI, WIFI_EPNO_EVENT);
+        return 0;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+
+    virtual int handleEvent(WifiEvent& event) {
+        ALOGI("ePNO event");
+        int event_id = event.get_vendor_subcmd();
+        // event.log();
+
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = event.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGI("No scan results found");
+            return NL_SKIP;
+        }
+
+        mResults = *(wifi_scan_result *) event.get_vendor_data();
+        if (*mHandler.on_network_found)
+            (*mHandler.on_network_found)(id(), 1, &mResults);
+        return NL_SKIP;
+    }
+};
+
+wifi_error wifi_set_epno_list(wifi_request_id id,
+                              wifi_interface_handle iface,
+                              int num_networks,
+                              wifi_epno_network * networks,
+                              wifi_epno_handler handler)
+{
+     wifi_handle handle = getWifiHandle(iface);
+
+     ePNOCommand *cmd = new ePNOCommand(iface, id, num_networks, networks, handler);
+     wifi_register_cmd(handle, id, cmd);
+     wifi_error result = (wifi_error)cmd->start();
+     if (result != WIFI_SUCCESS) {
+         wifi_unregister_cmd(handle, id);
+     }
+     return result;
+}
+
+class HsListCommand : public WifiCommand
+{
+    int num_hs;
+    wifi_passpoint_network *mNetworks;
+    wifi_passpoint_event_handler mHandler;
+public:
+    HsListCommand(wifi_request_id id, wifi_interface_handle iface,
+        int num, wifi_passpoint_network *hs_list, wifi_passpoint_event_handler handler)
+        : WifiCommand(iface, id), num_hs(num), mNetworks(hs_list),
+            mHandler(handler)
+    {
+    }
+
+    HsListCommand(wifi_request_id id, wifi_interface_handle iface,
+        int num)
+        : WifiCommand(iface, id), num_hs(num), mNetworks(NULL)
+    {
+    }
+
+    int createRequest(WifiRequest& request, int val) {
+        int result;
+
+        if (val) {
+            result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_HS_LIST);
+            result = request.put_u32(EPNO_ATTRIBUTE_HS_NUM, num_hs);
+            if (result < 0) {
+                return result;
+            }
+            nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+
+            struct nlattr * attr = request.attr_start(EPNO_ATTRIBUTE_HS_PARAM_LIST);
+            for (int i = 0; i < num_hs; i++) {
+                nlattr *attr2 = request.attr_start(i);
+                if (attr2 == NULL) {
+                    return WIFI_ERROR_OUT_OF_MEMORY;
+                }
+                result = request.put_u32(EPNO_ATTRIBUTE_HS_ID, mNetworks[i].id);
+                if (result < 0) {
+                    return result;
+                }
+                result = request.put(EPNO_ATTRIBUTE_HS_REALM, mNetworks[i].realm, 256);
+                if (result < 0) {
+                    return result;
+                }
+                result = request.put(EPNO_ATTRIBUTE_HS_CONSORTIUM_IDS, mNetworks[i].roamingConsortiumIds, 128);
+                if (result < 0) {
+                    return result;
+                }
+                result = request.put(EPNO_ATTRIBUTE_HS_PLMN, mNetworks[i].plmn, 3);
+                if (result < 0) {
+                    return result;
+                }
+                request.attr_end(attr2);
+            }
+            request.attr_end(attr);
+            request.attr_end(data);
+        }else {
+            result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_RESET_HS_LIST);
+            if (result < 0) {
+                return result;
+            }
+        }
+
+        return WIFI_SUCCESS;
+    }
+
+    int start() {
+
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, num_hs);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to create request; result = %d", result);
+            return result;
+        }
+
+        registerVendorHandler(GOOGLE_OUI, WIFI_HOTSPOT_MATCH);
+
+        result = requestResponse(request);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to set ANQPO networks; result = %d", result);
+            unregisterVendorHandler(GOOGLE_OUI, WIFI_HOTSPOT_MATCH);
+            return result;
+        }
+
+        return result;
+    }
+
+    virtual int cancel() {
+
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, 0);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to create request; result = %d", result);
+        } else {
+            result = requestResponse(request);
+            if (result != WIFI_SUCCESS) {
+                ALOGE("failed to reset ANQPO networks;result = %d", result);
+            }
+        }
+
+        unregisterVendorHandler(GOOGLE_OUI, WIFI_HOTSPOT_MATCH);
+        return WIFI_SUCCESS;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+         ALOGD("Request complete!");
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+
+    virtual int handleEvent(WifiEvent& event) {
+
+        ALOGI("hotspot matched event");
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        unsigned int len = event.get_vendor_data_len();
+        if (vendor_data == NULL || len < sizeof(wifi_scan_result)) {
+            ALOGE("ERROR: No scan results found");
+            return NL_SKIP;
+        }
+
+        wifi_scan_result *result = (wifi_scan_result *)event.get_vendor_data();
+        byte *anqp = (byte *)result + offsetof(wifi_scan_result, ie_data) + result->ie_length;
+        int networkId = *(int *)anqp;
+        anqp += sizeof(int);
+        int anqp_len = *(u16 *)anqp;
+        anqp += sizeof(u16);
+
+        ALOGI("%-32s\t", result->ssid);
+
+        ALOGI("%02x:%02x:%02x:%02x:%02x:%02x ", result->bssid[0], result->bssid[1],
+                result->bssid[2], result->bssid[3], result->bssid[4], result->bssid[5]);
+
+        ALOGI("%d\t", result->rssi);
+        ALOGI("%d\t", result->channel);
+        ALOGI("%lld\t", result->ts);
+        ALOGI("%lld\t", result->rtt);
+        ALOGI("%lld\n", result->rtt_sd);
+
+        if(*mHandler.on_passpoint_network_found)
+            (*mHandler.on_passpoint_network_found)(id(), networkId, result, anqp_len, anqp);
+
+        return NL_SKIP;
+    }
+};
+
+wifi_error wifi_set_passpoint_list(wifi_request_id id, wifi_interface_handle iface, int num,
+        wifi_passpoint_network *networks, wifi_passpoint_event_handler handler)
+{
+    wifi_handle handle = getWifiHandle(iface);
+    HsListCommand *cmd = new HsListCommand(id, iface, num, networks, handler);
+
+    wifi_register_cmd(handle, id, cmd);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+    }
+    return result;
+}
+
+wifi_error wifi_reset_passpoint_list(wifi_request_id id, wifi_interface_handle iface)
+{
+    wifi_handle   handle = getWifiHandle(iface);
+    wifi_error    result;
+    HsListCommand *cmd = (HsListCommand *)(wifi_get_cmd(handle, id));
+
+    if (cmd == NULL) {
+        cmd = new HsListCommand(id, iface, 0);
+        wifi_register_cmd(handle, id, cmd);
+    }
+    result = (wifi_error)cmd->cancel();
+    wifi_unregister_cmd(handle, id);
+    return result;
 }
