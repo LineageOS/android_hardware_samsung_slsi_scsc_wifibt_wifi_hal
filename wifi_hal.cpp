@@ -93,7 +93,7 @@ static nl_sock * wifi_create_nl_socket(int port)
     return sock;
 }
 
-/*initialize function pointer table with Broadcom HHAL API*/
+/* Initialize HAL function pointer table */
 wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
 {
     if (fn == NULL) {
