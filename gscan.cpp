@@ -82,6 +82,9 @@ typedef enum {
     GSCAN_ATTRIBUTE_BUCKET_EXPONENT,
     GSCAN_ATTRIBUTE_BUCKET_MAX_PERIOD,
 
+    GSCAN_ATTRIBUTE_NUM_BSSID,
+    GSCAN_ATTRIBUTE_BLACKLIST_BSSID,
+
     GSCAN_ATTRIBUTE_MAX
 
 } GSCAN_ATTRIBUTE;
@@ -428,7 +431,7 @@ public:
             return result;
         }
 
-      
+
         return result;
     }
 
@@ -1082,3 +1085,72 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interf
 
     return WIFI_ERROR_INVALID_ARGS;
 }
+
+class BssidBlacklistCommand : public WifiCommand
+{
+private:
+    wifi_bssid_params *mParams;
+public:
+    BssidBlacklistCommand(wifi_interface_handle handle, int id,
+            wifi_bssid_params *params)
+        : WifiCommand(handle, id), mParams(params)
+    { }
+     int createRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_BSSID_BLACKLIST);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u32(GSCAN_ATTRIBUTE_NUM_BSSID, mParams->num_bssid);
+        if (result < 0) {
+            return result;
+        }
+
+        for (int i = 0; i < mParams->num_bssid; i++) {
+            result = request.put_addr(GSCAN_ATTRIBUTE_BLACKLIST_BSSID, mParams->bssids[i]);
+            if (result < 0) {
+                return result;
+            }
+        }
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        ALOGD("Executing bssid blacklist request, num = %d", mParams->num_bssid);
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request);
+        if (result < 0) {
+            return result;
+        }
+
+        result = requestResponse(request);
+        if (result < 0) {
+            ALOGE("Failed to execute bssid blacklist request, result = %d", result);
+            return result;
+        }
+
+        ALOGI("Successfully added %d blacklist bssids", mParams->num_bssid);
+        return result;
+    }
+
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+};
+
+wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle iface,
+        wifi_bssid_params params)
+{
+    wifi_handle handle = getWifiHandle(iface);
+
+    BssidBlacklistCommand *cmd = new BssidBlacklistCommand(iface, id, &params);
+    wifi_error result = (wifi_error)cmd->start();
+    //release the reference of command as well
+    cmd->releaseRef();
+    return result;
+}
+
