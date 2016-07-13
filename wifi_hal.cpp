@@ -71,24 +71,12 @@ static nl_sock * wifi_create_nl_socket(int port)
 
     wifi_socket_set_local_port(sock, port);
 
-    struct sockaddr *addr = NULL;
-    // ALOGI("sizeof(sockaddr) = %d, sizeof(sockaddr_nl) = %d", sizeof(*addr), sizeof(*addr_nl));
-
-     ALOGI("Connecting socket");
+    ALOGI("Connecting socket");
     if (nl_connect(sock, NETLINK_GENERIC)) {
         ALOGE("Could not connect handle");
         nl_socket_free(sock);
         return NULL;
     }
-
-     ALOGI("Making socket nonblocking");
-    /*
-    if (nl_socket_set_nonblocking(sock)) {
-        ALOGE("Could make socket non-blocking");
-        nl_socket_free(sock);
-        return NULL;
-    }
-    */
 
     return sock;
 }
@@ -285,11 +273,6 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 
     int bad_commands = 0;
 
-    for (int i = 0; i < info->num_event_cb; i++) {
-        cb_info *cbi = &(info->event_cb[i]);
-        WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
-    }
-
     while (info->num_cmd > bad_commands) {
         int num_cmd = info->num_cmd;
         cmd_info *cmdi = &(info->cmd[bad_commands]);
@@ -420,8 +403,6 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
      //ALOGI("event received %s, vendor_id = 0x%0x", event.get_cmdString(), vendor_id);
      //event.log();
 
-    bool dispatched = false;
-
     pthread_mutex_lock(&info->cb_lock);
 
     ALOGI("Number of events %d", info->num_event_cb);
@@ -496,7 +477,6 @@ public:
          ALOGE("handling reponse in %s", __func__);
 
         struct nlattr **tb = reply.attributes();
-        struct genlmsghdr *gnlh = reply.header();
         struct nlattr *mcgrp = NULL;
         int i;
 
