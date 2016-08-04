@@ -82,7 +82,8 @@ typedef enum {
     SLSI_NL80211_VENDOR_SUBCMD_SET_BSSID_BLACKLIST,
     SLSI_NL80211_VENDOR_SUBCMD_SET_EPNO_LIST,
     SLSI_NL80211_VENDOR_SUBCMD_SET_HS_LIST,
-    SLSI_NL80211_VENDOR_SUBCMD_RESET_HS_LIST
+    SLSI_NL80211_VENDOR_SUBCMD_RESET_HS_LIST,
+    SLSI_NL80211_VENDOR_SUBCMD_SET_RSSI_MONITOR
 } WIFI_SUB_COMMAND;
 
 typedef enum {
@@ -95,7 +96,9 @@ typedef enum {
     WIFI_SUBCMD_KEY_MGMT_ROAM_AUTH, /* Handled by supplicant. not in Wifi-HAL */
     WIFI_HANGED_EVENT,
     WIFI_EPNO_EVENT,
-    WIFI_HOTSPOT_MATCH
+    WIFI_HOTSPOT_MATCH,
+    WIFI_RSSI_REPORT_EVENT
+
 } WIFI_EVENT;
 
 typedef void (*wifi_internal_event_handler) (wifi_handle handle, int events);
@@ -161,6 +164,7 @@ wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd);
 WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id);
 WifiCommand *wifi_get_cmd(wifi_handle handle, int id);
 void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd);
+wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface);
 
 interface_info *getIfaceInfo(wifi_interface_handle);
 wifi_handle getWifiHandle(wifi_interface_handle handle);

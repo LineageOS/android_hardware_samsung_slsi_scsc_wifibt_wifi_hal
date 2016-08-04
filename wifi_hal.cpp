@@ -26,7 +26,6 @@
 #define LOG_TAG  "WifiHAL"
 
 #include <utils/Log.h>
-
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
@@ -51,6 +50,16 @@ typedef enum wifi_attr {
     ANDR_WIFI_ATTRIBUTE_FEATURE_SET,
     ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI
 } wifi_attr_t;
+
+enum wifi_rssi_monitor_attr {
+    RSSI_MONITOR_ATTRIBUTE_MAX_RSSI,
+    RSSI_MONITOR_ATTRIBUTE_MIN_RSSI,
+    RSSI_MONITOR_ATTRIBUTE_START,
+};
+
+static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
+                        iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
+static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
 
 /* Initialize/Cleanup */
 
@@ -117,6 +126,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_reset_passpoint_list = wifi_reset_passpoint_list;
 #endif
     fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
+    fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
+    fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
     return WIFI_SUCCESS;
 }
 
@@ -605,6 +616,117 @@ public:
     }
 };
 
+class SetRSSIMonitorCommand : public WifiCommand {
+private:
+    s8 mMax_rssi;
+    s8 mMin_rssi;
+    wifi_rssi_event_handler mHandler;
+public:
+    SetRSSIMonitorCommand(wifi_request_id id, wifi_interface_handle handle,
+                s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh)
+        : WifiCommand(handle, id), mMax_rssi(max_rssi), mMin_rssi
+        (min_rssi), mHandler(eh)
+        {
+        }
+   int createRequest(WifiRequest& request, int enable) {
+        int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_RSSI_MONITOR);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u8(RSSI_MONITOR_ATTRIBUTE_MAX_RSSI, (enable ? mMax_rssi: 0));
+        if (result < 0) {
+            return result;
+        }
+        ALOGD("create request");
+        result = request.put_u8(RSSI_MONITOR_ATTRIBUTE_MIN_RSSI, (enable? mMin_rssi: 0));
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(RSSI_MONITOR_ATTRIBUTE_START, enable);
+        if (result < 0) {
+            return result;
+        }
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, 1);
+        if (result < 0) {
+            return result;
+        }
+        result = requestResponse(request);
+        if (result < 0) {
+            ALOGI("Failed to set RSSI Monitor, result = %d", result);
+            return result;
+        }
+        ALOGI("Successfully set RSSI monitoring");
+        registerVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
+
+
+        if (result < 0) {
+            unregisterVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
+            return result;
+        }
+        ALOGI("Done!");
+        return result;
+    }
+
+    virtual int cancel() {
+
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, 0);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to create request; result = %d", result);
+        } else {
+            result = requestResponse(request);
+            if (result != WIFI_SUCCESS) {
+                ALOGE("failed to stop RSSI monitoring = %d", result);
+            }
+        }
+        unregisterVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
+        return WIFI_SUCCESS;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+
+   virtual int handleEvent(WifiEvent& event) {
+        ALOGI("Got a RSSI monitor event");
+
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = event.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGI("RSSI monitor: No data");
+            return NL_SKIP;
+        }
+
+        typedef struct {
+            s8 cur_rssi;
+            mac_addr BSSID;
+        } rssi_monitor_evt;
+
+        rssi_monitor_evt *data = (rssi_monitor_evt *)event.get_vendor_data();
+
+        if (*mHandler.on_rssi_threshold_breached) {
+            (*mHandler.on_rssi_threshold_breached)(id(), data->BSSID, data->cur_rssi);
+        } else {
+            ALOGW("No RSSI monitor handler registered");
+        }
+
+        return NL_SKIP;
+    }
+
+};
+
+
+
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
     GetMulticastIdCommand cmd(handle, name, group);
@@ -724,6 +846,39 @@ wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs)
 {
     SetNodfsCommand command(handle, nodfs);
     return (wifi_error) command.requestResponse();
+}
+
+static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
+                        iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh)
+{
+    ALOGD("Start RSSI monitor %d", id);
+    wifi_handle handle = getWifiHandle(iface);
+    SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface, max_rssi, min_rssi, eh);
+    wifi_register_cmd(handle, id, cmd);
+
+    wifi_error result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+    }
+    return result;
+}
+
+
+static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface)
+{
+    ALOGD("Stopping RSSI monitor");
+
+    if(id == -1) {
+        wifi_rssi_event_handler handler;
+        wifi_handle handle = getWifiHandle(iface);
+        memset(&handler, 0, sizeof(handler));
+        SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface,
+                                                    0, 0, handler);
+        cmd->cancel();
+        cmd->releaseRef();
+        return WIFI_SUCCESS;
+    }
+    return wifi_cancel_cmd(id, iface);
 }
 
 /////////////////////////////////////////////////////////////////////////////
