@@ -127,7 +127,11 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
     fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
     fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
+#if 0
+    fn->wifi_set_link_stats = wifi_set_link_stats;
     fn->wifi_get_link_stats = wifi_get_link_stats;
+    fn->wifi_clear_link_stats = wifi_clear_link_stats;
+#endif
 
     return WIFI_SUCCESS;
 }
