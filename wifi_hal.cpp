@@ -730,7 +730,60 @@ public:
 
 };
 
+class GetFeatureSetCommand : public WifiCommand {
 
+private:
+    int feature_type;
+    feature_set *fset;
+    int *fm_size;
+    int set_size_max;
+public:
+    GetFeatureSetCommand(wifi_interface_handle handle, feature_set *set)
+        : WifiCommand(handle, 0)
+    {
+        fset = set;
+    }
+
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_GET_FEATURE_SET);
+        if (ret < 0) {
+            ALOGE("create failed - %d", ret);
+        }
+
+        return ret;
+    }
+
+protected:
+    virtual int handleResponse(WifiEvent& reply) {
+
+        int id = reply.get_vendor_id();
+        int subcmd = reply.get_vendor_subcmd();
+
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGD("Ignore reply; cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("vendor data in GetFeatureSetCommand missing!!");
+            return NL_SKIP;
+        }
+
+        void *data = reply.get_vendor_data();
+        if(!fset) {
+            ALOGE("feature_set Pointer not set");
+            return NL_SKIP;
+        }
+        memcpy(fset, data, min(len, (int) sizeof(*fset)));
+        return NL_OK;
+    }
+
+};
 
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
@@ -829,11 +882,6 @@ wifi_error wifi_get_iface_name(wifi_interface_handle handle, char *name, size_t 
     return WIFI_SUCCESS;
 }
 
-wifi_error wifi_get_supported_feature_set(wifi_interface_handle handle, feature_set *set)
-{
-    return WIFI_ERROR_NOT_SUPPORTED;
-}
-
 wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle, int set_size_max,
        feature_set set[], int *set_size)
 {
@@ -884,6 +932,12 @@ static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_h
         return WIFI_SUCCESS;
     }
     return wifi_cancel_cmd(id, iface);
+}
+
+wifi_error wifi_get_supported_feature_set(wifi_interface_handle handle, feature_set *set)
+{
+    GetFeatureSetCommand command(handle, set);
+    return (wifi_error) command.requestResponse();
 }
 
 /////////////////////////////////////////////////////////////////////////////
