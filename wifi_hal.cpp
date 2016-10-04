@@ -119,11 +119,9 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_set_nodfs_flag = wifi_set_nodfs_flag;
     fn->wifi_start_sending_offloaded_packet = wifi_start_sending_offloaded_packet;
     fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
-#if 0
     fn->wifi_set_epno_list = wifi_set_epno_list;
     fn->wifi_set_passpoint_list = wifi_set_passpoint_list;
     fn->wifi_reset_passpoint_list = wifi_reset_passpoint_list;
-#endif
     fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
     fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
     fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
