@@ -53,6 +53,7 @@ typedef enum {
     GSCAN_ATTRIBUTE_CHANNEL_LIST,
     GSCAN_ATTRIBUTE_SCAN_ID,
     GSCAN_ATTRIBUTE_SCAN_FLAGS,
+    GSCAN_ATTRIBUTE_SCAN_BUCKET_BIT,
 
     /* remaining reserved for additional attributes */
 
@@ -127,7 +128,7 @@ public:
 
         int ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_GET_CAPABILITIES);
         if (ret < 0) {
-	    ALOGD("NL message creation failed");
+            ALOGD("NL message creation failed");
             return ret;
         }
 
@@ -329,7 +330,7 @@ public:
             return result;
         }
 
-	result = request.put_u32(GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN, mParams->max_ap_per_scan);
+        result = request.put_u32(GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN, mParams->max_ap_per_scan);
         if (result < 0) {
             return result;
         }
@@ -378,7 +379,7 @@ public:
             }
 
             result = request.put_u32(GSCAN_ATTRIBUTE_BUCKET_EXPONENT,
-                    mParams->buckets[i].exponent);
+                    mParams->buckets[i].base);
             if (result < 0) {
                 return result;
             }
@@ -505,36 +506,29 @@ public:
             if(*mHandler.on_scan_event)
                 (*mHandler.on_scan_event)(evt_type, evt_type);
         } else if(event_id == GSCAN_EVENT_FULL_SCAN_RESULTS) {
-	    if (vendor_data == NULL || len < sizeof(wifi_scan_result)) {
-	        ALOGD("No scan results found");
-	        return NL_SKIP;
-	    }
-	    wifi_scan_result *result = (wifi_scan_result *)event.get_vendor_data();
-
-	    if(*mHandler.on_full_scan_result)
-	        (*mHandler.on_full_scan_result)(id(), result);
-
-	    ALOGD("%-32s\t", result->ssid);
-
-	    ALOGD("%02x:%02x:%02x:%02x:%02x:%02x ", result->bssid[0], result->bssid[1],
-	            result->bssid[2], result->bssid[3], result->bssid[4], result->bssid[5]);
-
-	    ALOGD("%d\t", result->rssi);
-	    ALOGD("%d\t", result->channel);
-	    ALOGD("%lld\t", result->ts);
-	    ALOGD("%lld\t", result->rtt);
-	    ALOGD("%lld\n", result->rtt_sd);
-        } else {
-
-            if (vendor_data == NULL || len != 4) {
-                ALOGD("No scan results found");
-                return NL_SKIP;
+            uint32_t bucket_scanned;
+            wifi_scan_result *scan_result = NULL;
+            for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+                if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_BUCKET_BIT) {
+                    bucket_scanned = it.get_u32();
+                } else if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS) {
+                    if (it.get_len() >= (int)sizeof(*scan_result))
+                        scan_result = (wifi_scan_result *)it.get_data();
+                }
             }
+            if (scan_result) {
+                if(*mHandler.on_full_scan_result)
+                    (*mHandler.on_full_scan_result)(id(), scan_result, bucket_scanned);
 
-            int num = event.get_u32(NL80211_ATTR_VENDOR_DATA);
-            ALOGD("Found %d scan results", num);
-            if(*mHandler.on_scan_results_available)
-                (*mHandler.on_scan_results_available)(id(), num);
+                    ALOGD("%-32s\t", scan_result->ssid);
+                    ALOGD("%02x:%02x:%02x:%02x:%02x:%02x ", scan_result->bssid[0], scan_result->bssid[1],
+                            scan_result->bssid[2], scan_result->bssid[3], scan_result->bssid[4], scan_result->bssid[5]);
+                    ALOGD("%d\t", scan_result->rssi);
+                    ALOGD("%d\t", scan_result->channel);
+                    ALOGD("%lld\t", scan_result->ts);
+                    ALOGD("%lld\t", scan_result->rtt);
+                    ALOGD("%lld\n", scan_result->rtt_sd);
+            }
         }
         return NL_SKIP;
     }
@@ -1057,8 +1051,8 @@ public:
         for (int i = 0; i < num; i++) {
             memcpy(mResultsBuffer[i].bssid, ci[i].bssid, sizeof(mac_addr));
             mResultsBuffer[i].channel = ci[i].channel;
-			/* Driver sends N samples and the rest 8-N are filled 0x7FFF
-			 * N = no of rssi samples to average sent in significant change request. */
+            /* Driver sends N samples and the rest 8-N are filled 0x7FFF
+             * N = no of rssi samples to average sent in significant change request. */
             int num_rssi = 0;
             for (int j = 0; j < 8; j++) {
                 if (ci[i].rssi_history[j] == 0x7FFF) {
@@ -1107,7 +1101,7 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interf
 
     return WIFI_ERROR_INVALID_ARGS;
 }
-
+#ifdef ANDROID_N_EPNO
 class ePNOCommand : public WifiCommand
 {
 private:
@@ -1416,6 +1410,7 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id, wifi_interface_handle i
     wifi_unregister_cmd(handle, id);
     return result;
 }
+#endif
 class BssidBlacklistCommand : public WifiCommand
 {
 private:
