@@ -218,13 +218,20 @@ protected:
             return NL_SKIP;
         }
 
+        /* Data sent from driver does not contain num_tx_levels and tx_time per level. So copy
+         * radio data in two parts - 1st part until num_tx_levels and 2nd part from rx_time.
+         * channel data is copied separately
+         */
+        int radio_data_len1,radio_data_len2;
+        radio_data_len1 = (u8 *)&(radio_stat->num_tx_levels) - (u8*)radio_stat;
+        radio_data_len2 = (u8 *)(radio_stat->channels) - (u8*)&(radio_stat->rx_time);
+
         //kernel is 64 bit. if userspace is 64 bit, typecastting buffer works else, make corrections
         if (sizeof(iface_stat->iface) == 8) {
             memcpy(iface_stat, data, sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers);
             data += sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers;
-            memcpy(radio_stat, data, sizeof(wifi_radio_stat) + sizeof(wifi_channel_stat)* ((wifi_radio_stat *)data)->num_channels);
         } else {
-            /* for 64 bit kernel ad 32 bit user space, there is 4 byte extra at the beging and another 4 byte pad after 80 bytes
+            /* for 64 bit kernel ad 32 bit user space, there is 4 byte extra at the begining and another 4 byte pad after 80 bytes
              * so remove first 4 and 81-84 bytes from NL buffer.*/
             data += 4;
             memcpy(iface_stat, data, 80);
@@ -233,10 +240,14 @@ protected:
             data += sizeof(wifi_iface_stat) - 80;
             memcpy(iface_stat->peer_info, data, sizeof(wifi_peer_info) * iface_stat->num_peers);
             data += sizeof(wifi_peer_info) * iface_stat->num_peers;
-            memcpy(radio_stat, data, sizeof(wifi_radio_stat));
-            data += sizeof(wifi_radio_stat);
-            memcpy(radio_stat->channels, data, sizeof(wifi_channel_stat) * radio_stat->num_channels);
         }
+        memcpy(radio_stat, data, radio_data_len1);
+        data += radio_data_len1;
+        memcpy(&radio_stat->rx_time, data, radio_data_len2);
+        data += radio_data_len2;
+        memcpy(radio_stat->channels, data, sizeof(wifi_channel_stat)* radio_stat->num_channels);
+        radio_stat->num_tx_levels = 0;
+        radio_stat->tx_time_per_levels = NULL;
         iface_stat->iface = iface;
         (*mHandler.on_link_stats_results)(id, iface_stat, 1, radio_stat);
         free(iface_stat);
