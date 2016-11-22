@@ -1101,63 +1101,71 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interf
 
     return WIFI_ERROR_INVALID_ARGS;
 }
-#ifdef ANDROID_N_EPNO
+
 class ePNOCommand : public WifiCommand
 {
 private:
-    wifi_epno_network *ssid_list;
-    int               num_ssid;
+    wifi_epno_params  *epno_params;
     wifi_epno_handler mHandler;
     wifi_scan_result  mResults;
 public:
     ePNOCommand(wifi_interface_handle handle, int id,
-            int num_networks, wifi_epno_network *networks, wifi_epno_handler handler)
+            wifi_epno_params *params, wifi_epno_handler handler)
         : WifiCommand(handle, id), mHandler(handler)
     {
-        ssid_list = networks;
-        num_ssid = num_networks;
+        epno_params = params;
     }
 
     int createSetupRequest(WifiRequest& request) {
+        int rssi_threshold;
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_EPNO_LIST);
         if (result < 0) {
             return result;
         }
 
         nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        if (epno_params == NULL) {
+            result = request.put_u8(EPNO_ATTRIBUTE_SSID_NUM, 0);
+            if (result < 0) {
+                return result;
+            }
+            request.attr_end(data);
+            return result;
+        }
 
-        result = request.put_u8(EPNO_ATTRIBUTE_SSID_NUM, num_ssid);
+        rssi_threshold = epno_params->min5GHz_rssi < epno_params->min24GHz_rssi ? epno_params->min5GHz_rssi : epno_params->min24GHz_rssi;
+        result = request.put_u8(EPNO_ATTRIBUTE_SSID_NUM, epno_params->num_networks);
         if (result < 0) {
             return result;
         }
 
         struct nlattr * attr = request.attr_start(EPNO_ATTRIBUTE_SSID_LIST);
-        for (int i = 0; i < num_ssid; i++) {
+        for (int i = 0; i < epno_params->num_networks; i++) {
             nlattr *attr2 = request.attr_start(i);
             if (attr2 == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
             }
-            result = request.put(EPNO_ATTRIBUTE_SSID, ssid_list[i].ssid, 32);
-            ALOGI("ePNO [SSID:%s rssi_thresh:%d flags:%d auth:%d]", ssid_list[i].ssid,
-                (signed char)ssid_list[i].rssi_threshold, ssid_list[i].flags,
-                ssid_list[i].auth_bit_field);
+            result = request.put(EPNO_ATTRIBUTE_SSID, epno_params->networks[i].ssid, 32);
+            ALOGI("ePNO [SSID:%s rssi_thresh:%d flags:%d auth:%d]", epno_params->networks[i].ssid,
+                (signed char)rssi_threshold, epno_params->networks[i].flags,
+                epno_params->networks[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(EPNO_ATTRIBUTE_SSID_LEN, strlen(ssid_list[i].ssid));
+            result = request.put_u8(EPNO_ATTRIBUTE_SSID_LEN, strlen(epno_params->networks[i].ssid));
             if (result < 0) {
                 return result;
             }
 
-            result = request.put_u8(EPNO_ATTRIBUTE_RSSI, ssid_list[i].rssi_threshold);
+            result = request.put_u8(EPNO_ATTRIBUTE_RSSI, rssi_threshold);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(EPNO_ATTRIBUTE_FLAGS, ssid_list[i].flags);
+            result = request.put_u8(EPNO_ATTRIBUTE_FLAGS, epno_params->networks[i].flags);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(EPNO_ATTRIBUTE_AUTH, ssid_list[i].auth_bit_field);
+            result = request.put_u8(EPNO_ATTRIBUTE_AUTH, epno_params->networks[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
@@ -1170,7 +1178,7 @@ public:
     }
 
     int start() {
-        ALOGI("ePNO num_network=%d", num_ssid);
+        ALOGI("ePNO num_network=%d", epno_params ? epno_params->num_networks : 0);
         WifiRequest request(familyId(), ifaceId());
         int result = createSetupRequest(request);
         if (result < 0) {
@@ -1184,8 +1192,12 @@ public:
             return result;
         }
 
-        ALOGI("Successfully set %d SSIDs for ePNO", num_ssid);
-        registerVendorHandler(GOOGLE_OUI, WIFI_EPNO_EVENT);
+        if (epno_params) {
+            ALOGI("Successfully set %d SSIDs for ePNO", epno_params->num_networks);
+            registerVendorHandler(GOOGLE_OUI, WIFI_EPNO_EVENT);
+        } else {
+            ALOGI("Successfully reset ePNO");
+        }
         return result;
     }
 
@@ -1222,19 +1234,33 @@ public:
 
 wifi_error wifi_set_epno_list(wifi_request_id id,
                               wifi_interface_handle iface,
-                              int num_networks,
-                              wifi_epno_network * networks,
+                              const wifi_epno_params *epno_params,
                               wifi_epno_handler handler)
 {
-     wifi_handle handle = getWifiHandle(iface);
+    wifi_handle handle = getWifiHandle(iface);
 
-     ePNOCommand *cmd = new ePNOCommand(iface, id, num_networks, networks, handler);
-     wifi_register_cmd(handle, id, cmd);
-     wifi_error result = (wifi_error)cmd->start();
-     if (result != WIFI_SUCCESS) {
-         wifi_unregister_cmd(handle, id);
-     }
-     return result;
+    ePNOCommand *cmd = new ePNOCommand(iface, id, (wifi_epno_params *)epno_params, handler);
+    wifi_register_cmd(handle, id, cmd);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+    }
+    return result;
+}
+
+wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
+{
+    wifi_handle handle = getWifiHandle(iface);
+    wifi_epno_handler handler;
+
+    handler.on_network_found = NULL;
+    ePNOCommand *cmd = new ePNOCommand(iface, id, NULL, handler);
+    wifi_register_cmd(handle, id, cmd);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+    }
+    return result;
 }
 
 class HsListCommand : public WifiCommand
@@ -1410,7 +1436,7 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id, wifi_interface_handle i
     wifi_unregister_cmd(handle, id);
     return result;
 }
-#endif
+
 class BssidBlacklistCommand : public WifiCommand
 {
 private:
