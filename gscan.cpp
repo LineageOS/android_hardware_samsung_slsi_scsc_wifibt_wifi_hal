@@ -92,11 +92,17 @@ typedef enum {
 } GSCAN_ATTRIBUTE;
 
 typedef enum {
-    EPNO_ATTRIBUTE_SSID_LIST,
+    EPNO_ATTRIBUTE_MINIMUM_5G_RSSI,
+    EPNO_ATTRIBUTE_MINIMUM_2G_RSSI,
+    EPNO_ATTRIBUTE_INITIAL_SCORE_MAX,
+    EPNO_ATTRIBUTE_CUR_CONN_BONUS,
+    EPNO_ATTRIBUTE_SAME_NETWORK_BONUS,
+    EPNO_ATTRIBUTE_SECURE_BONUS,
+    EPNO_ATTRIBUTE_5G_BONUS,
     EPNO_ATTRIBUTE_SSID_NUM,
+    EPNO_ATTRIBUTE_SSID_LIST,
     EPNO_ATTRIBUTE_SSID,
     EPNO_ATTRIBUTE_SSID_LEN,
-    EPNO_ATTRIBUTE_RSSI,
     EPNO_ATTRIBUTE_FLAGS,
     EPNO_ATTRIBUTE_AUTH,
     EPNO_ATTRIBUTE_MAX
@@ -1117,7 +1123,6 @@ public:
     }
 
     int createSetupRequest(WifiRequest& request) {
-        int rssi_threshold;
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_EPNO_LIST);
         if (result < 0) {
             return result;
@@ -1132,12 +1137,48 @@ public:
             request.attr_end(data);
             return result;
         }
-
-        rssi_threshold = epno_params->min5GHz_rssi < epno_params->min24GHz_rssi ? epno_params->min5GHz_rssi : epno_params->min24GHz_rssi;
+        result = request.put_u16(EPNO_ATTRIBUTE_MINIMUM_5G_RSSI, epno_params->min5GHz_rssi);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(EPNO_ATTRIBUTE_MINIMUM_2G_RSSI, epno_params->min24GHz_rssi);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(EPNO_ATTRIBUTE_INITIAL_SCORE_MAX, epno_params->initial_score_max);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(EPNO_ATTRIBUTE_CUR_CONN_BONUS, epno_params->current_connection_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(EPNO_ATTRIBUTE_SAME_NETWORK_BONUS, epno_params->same_network_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(EPNO_ATTRIBUTE_SECURE_BONUS, epno_params->secure_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(EPNO_ATTRIBUTE_5G_BONUS, epno_params->band5GHz_bonus);
+        if (result < 0) {
+            return result;
+        }
         result = request.put_u8(EPNO_ATTRIBUTE_SSID_NUM, epno_params->num_networks);
         if (result < 0) {
             return result;
         }
+
+       ALOGI("ePNO [min5GHz_rssi:%d min24GHz_rssi:%d initial_score_max:%d current_connection_bonus:%d same_network_bonus:%d secure_bonus:%d band5GHz_bonus:%d num_networks:%d]",
+	     epno_params->min5GHz_rssi,
+	     epno_params->min24GHz_rssi,
+	     epno_params->initial_score_max,
+	     epno_params->current_connection_bonus,
+	     epno_params->same_network_bonus,
+	     epno_params->secure_bonus,
+	     epno_params->band5GHz_bonus,
+	     epno_params->num_networks);
 
         struct nlattr * attr = request.attr_start(EPNO_ATTRIBUTE_SSID_LIST);
         for (int i = 0; i < epno_params->num_networks; i++) {
@@ -1145,10 +1186,11 @@ public:
             if (attr2 == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
             }
-            result = request.put(EPNO_ATTRIBUTE_SSID, epno_params->networks[i].ssid, 32);
-            ALOGI("ePNO [SSID:%s rssi_thresh:%d flags:%d auth:%d]", epno_params->networks[i].ssid,
-                (signed char)rssi_threshold, epno_params->networks[i].flags,
-                epno_params->networks[i].auth_bit_field);
+            result = request.put_u16(EPNO_ATTRIBUTE_FLAGS, epno_params->networks[i].flags);
+            if (result < 0) {
+                return result;
+            }
+            result = request.put_u8(EPNO_ATTRIBUTE_AUTH, epno_params->networks[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
@@ -1156,16 +1198,10 @@ public:
             if (result < 0) {
                 return result;
             }
-
-            result = request.put_u8(EPNO_ATTRIBUTE_RSSI, rssi_threshold);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u8(EPNO_ATTRIBUTE_FLAGS, epno_params->networks[i].flags);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u8(EPNO_ATTRIBUTE_AUTH, epno_params->networks[i].auth_bit_field);
+            result = request.put(EPNO_ATTRIBUTE_SSID, epno_params->networks[i].ssid, strlen(epno_params->networks[i].ssid));
+            ALOGI("ePNO [SSID:%s flags:%d auth:%d]", epno_params->networks[i].ssid,
+                epno_params->networks[i].flags,
+                epno_params->networks[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
@@ -1238,7 +1274,6 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
                               wifi_epno_handler handler)
 {
     wifi_handle handle = getWifiHandle(iface);
-
     ePNOCommand *cmd = new ePNOCommand(iface, id, (wifi_epno_params *)epno_params, handler);
     wifi_register_cmd(handle, id, cmd);
     wifi_error result = (wifi_error)cmd->start();
