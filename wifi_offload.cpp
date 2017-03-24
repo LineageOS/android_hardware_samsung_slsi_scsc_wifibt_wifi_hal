@@ -192,35 +192,17 @@ public:
     }
 };
 
-
 /* API to send specified mkeep_alive packet periodically. */
 wifi_error wifi_start_sending_offloaded_packet(wifi_request_id index, wifi_interface_handle iface,
         u8 *ip_packet, u16 ip_packet_len, u8 *src_mac_addr, u8 *dst_mac_addr, u32 period_msec)
 {
-    if ((index > 0 && index <= N_AVAIL_ID) && (ip_packet != NULL) && (src_mac_addr != NULL)
-            && (dst_mac_addr != NULL) && (period_msec > 0)
-            && (ip_packet_len <= MKEEP_ALIVE_IP_PKT_MAX)) {
-        MKeepAliveCommand *cmd = new MKeepAliveCommand(iface, index, ip_packet, ip_packet_len,
-                src_mac_addr, dst_mac_addr, period_msec, START_MKEEP_ALIVE);
-        wifi_error result = (wifi_error)cmd->start();
-        delete cmd;
-        return result;
-    } else {
-        ALOGE("Invalid mkeep_alive parameters");
-        return  WIFI_ERROR_INVALID_ARGS;
-    }
+    ALOGE("Returning WIFI_ERROR_NOT_SUPPORTED, as NAT KeepAlive Feature is disabled as of now.");
+    return WIFI_ERROR_NOT_SUPPORTED;
 }
 
 /* API to stop sending mkeep_alive packet. */
 wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id index, wifi_interface_handle iface)
 {
-    if (index > 0 && index <= N_AVAIL_ID) {
-        MKeepAliveCommand *cmd = new MKeepAliveCommand(iface, index, STOP_MKEEP_ALIVE);
-        wifi_error result = (wifi_error)cmd->start();
-        delete cmd;
-        return result;
-    } else {
-        ALOGE("Invalid mkeep_alive parameters");
-        return  WIFI_ERROR_INVALID_ARGS;
-    }
+    ALOGE("Returning WIFI_ERROR_NOT_SUPPORTED, as NAT KeepAlive Feature is disabled as of now.");
+    return WIFI_ERROR_NOT_SUPPORTED;
 }
