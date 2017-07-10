@@ -68,7 +68,13 @@ public:
     // constructor for stop sending
     MKeepAliveCommand(wifi_interface_handle iface, u8 index, GetCmdType cmdType)
         : WifiCommand(iface, 0), mIndex(index), mType(cmdType)
-    { }
+    {
+        mIpPkt = NULL;
+        mIpPktLen = 0;
+        mSrcMacAddr = NULL;
+        mDstMacAddr = NULL;
+        mPeriodMsec = 0;
+    }
 
     int createRequest(WifiRequest &request) {
         int result;

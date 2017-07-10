@@ -456,7 +456,7 @@ public:
             return result;
         }
 
-      
+
         return result;
     }
 
@@ -508,7 +508,7 @@ public:
             if(*mHandler.on_scan_event)
                 (*mHandler.on_scan_event)(evt_type, evt_type);
         } else if(event_id == GSCAN_EVENT_FULL_SCAN_RESULTS) {
-            uint32_t bucket_scanned;
+            uint32_t bucket_scanned = 0;
             wifi_scan_result *scan_result = NULL;
             for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
                 if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_BUCKET_BIT) {
@@ -596,7 +596,10 @@ public:
             wifi_cached_scan_results *results, int max, int *num)
         : WifiCommand(iface, -1), mScans(results), mMax(max), mNum(num),
                 mRetrieved(0), mFlush(flush), mCompleted(0)
-    { }
+    {
+        memset(mScanResults,0,sizeof(mScanResults));
+        mNextScanResult = 0;
+    }
 
     int createRequest(WifiRequest& request, int num, byte flush) {
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_GET_SCAN_RESULTS);
@@ -746,7 +749,9 @@ public:
     BssidHotlistCommand(wifi_interface_handle handle, int id,
             wifi_bssid_hotlist_params params, wifi_hotlist_ap_found_handler handler)
         : WifiCommand(handle, id), mParams(params), mHandler(handler)
-    { }
+    {
+            memset(mResults, 0, sizeof(mResults));
+    }
 
     int createSetupRequest(WifiRequest& request) {
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_BSSID_HOTLIST);
@@ -858,7 +863,6 @@ public:
             return NL_SKIP;
         }
 
-        memset(mResults, 0, sizeof(wifi_scan_result) * MAX_RESULTS);
 
         int num = len / sizeof(wifi_scan_result);
         num = min(MAX_RESULTS, num);
@@ -923,7 +927,10 @@ public:
     SignificantWifiChangeCommand(wifi_interface_handle handle, int id,
             wifi_significant_change_params params, wifi_significant_change_handler handler)
         : WifiCommand(handle, id), mParams(params), mHandler(handler)
-    { }
+    {
+        memset(mResultsBuffer,0,sizeof(mResultsBuffer));
+        memset(mResults,0,sizeof(mResults));
+    }
 
     int createSetupRequest(WifiRequest& request) {
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_SIGNIFICANT_CHANGE);
@@ -1115,6 +1122,7 @@ public:
         : WifiCommand(handle, id), mHandler(handler)
     {
         epno_params = params;
+        memset(&mResults,0,sizeof(wifi_scan_result));
     }
 
     int createSetupRequest(WifiRequest& request) {
@@ -1256,6 +1264,7 @@ public:
             return NL_SKIP;
         }
 
+
         mResults = *(wifi_scan_result *) event.get_vendor_data();
         if (*mHandler.on_network_found)
             (*mHandler.on_network_found)(id(), 1, &mResults);
@@ -1310,6 +1319,7 @@ public:
         int num)
         : WifiCommand(iface, id), num_hs(num), mNetworks(NULL)
     {
+        mHandler.on_passpoint_network_found = NULL;
     }
 
     int createRequest(WifiRequest& request, int val) {

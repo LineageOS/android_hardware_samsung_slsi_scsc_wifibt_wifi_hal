@@ -46,13 +46,21 @@ class LinkLayerStatsCommand : public WifiCommand
 public:
     LinkLayerStatsCommand(wifi_interface_handle handle, wifi_link_layer_params params)
         : WifiCommand(handle, 0), mParams(params)
-    { }
+    {
+        mStatsClearReqMask = 0;
+        mStatsClearRspMask = 0;
+        mStopReq = 0 ;
+        mStopRsp = NULL;
+
+    }
 
     LinkLayerStatsCommand(wifi_interface_handle handle,
         u32 stats_clear_req_mask, u32 *stats_clear_rsp_mask, u8 stop_req, u8 *stop_rsp)
         : WifiCommand(handle, 0), mStatsClearReqMask(stats_clear_req_mask), mStatsClearRspMask(stats_clear_rsp_mask),
         mStopReq(stop_req), mStopRsp(stop_rsp)
-    { }
+    {
+        memset(&mParams,0,sizeof(wifi_link_layer_params));
+    }
 
     int createSetRequest(WifiRequest& request) {
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_LLS_SET_INFO);
@@ -210,11 +218,16 @@ protected:
 
         // assuming max peers is 16
         wifi_iface_stat *iface_stat = (wifi_iface_stat *) malloc(sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * 16);
+        if (!iface_stat) {
+            ALOGE("Memory alloc failed for iface_stat in response handler!!!");
+            return NL_SKIP;
+        }
+
         // max channel is 38 (14 2.4GHz and 24 5GHz)
         wifi_radio_stat *radio_stat = (wifi_radio_stat *) malloc(sizeof(wifi_radio_stat) + sizeof(wifi_channel_stat) * 38);
-
-        if (!iface_stat || !radio_stat) {
-            ALOGE("Memory alloc failed in response handler!!!");
+        if (!radio_stat) {
+            ALOGE("Memory alloc failed for radio_stat in response handler!!!");
+            free(iface_stat);
             return NL_SKIP;
         }
 

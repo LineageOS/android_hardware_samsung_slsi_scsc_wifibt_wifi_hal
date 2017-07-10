@@ -670,11 +670,6 @@ public:
         ALOGI("Successfully set RSSI monitoring");
         registerVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
 
-
-        if (result < 0) {
-            unregisterVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
-            return result;
-        }
         ALOGI("Done!");
         return result;
     }
@@ -761,10 +756,9 @@ public:
 class GetFeatureSetCommand : public WifiCommand {
 
 private:
-    int feature_type;
+
     feature_set *fset;
-    int *fm_size;
-    int set_size_max;
+
 public:
     GetFeatureSetCommand(wifi_interface_handle handle, feature_set *set)
         : WifiCommand(handle, 0)
