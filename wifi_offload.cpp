@@ -18,7 +18,7 @@
 #include "nl80211_copy.h"
 #include "sync.h"
 
-#define LOG_TAG  "WifiHAL"
+#define LOG_TAG  "WifiHAL[offload]"
 
 #include <utils/Log.h>
 

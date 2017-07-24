@@ -29,7 +29,8 @@ LOCAL_SRC_FILES := \
 	link_layer_stats.cpp \
 	wifi_offload.cpp \
 	roam.cpp \
-	wifi_logger.cpp
+	wifi_logger.cpp \
+	wifi_nan.cpp
 
 LOCAL_MODULE := libwifi-hal-slsi
 LOCAL_VENDOR_MODULE := true

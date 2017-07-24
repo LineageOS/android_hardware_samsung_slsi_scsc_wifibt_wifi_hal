@@ -202,6 +202,17 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_get_firmware_memory_dump = wifi_get_firmware_memory_dump;
     fn->wifi_get_driver_memory_dump = wifi_get_driver_memory_dump;
     fn->wifi_get_wake_reason_stats = wifi_get_wake_reason_stats;
+    fn->wifi_nan_enable_request = nan_enable_request;
+    fn->wifi_nan_disable_request = nan_disable_request;
+    fn->wifi_nan_publish_request = nan_publish_request;
+    fn->wifi_nan_publish_cancel_request = nan_publish_cancel_request;
+    fn->wifi_nan_subscribe_request = nan_subscribe_request;
+    fn->wifi_nan_subscribe_cancel_request = nan_subscribe_cancel_request;
+    fn->wifi_nan_transmit_followup_request = nan_transmit_followup_request;
+    fn->wifi_nan_config_request = nan_config_request;
+    fn->wifi_nan_register_handler = nan_register_handler;
+    fn->wifi_nan_get_version = nan_get_version;
+    fn->wifi_nan_get_capabilities = nan_get_capabilities;
 
     return WIFI_SUCCESS;
 }
@@ -279,7 +290,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
     pthread_mutex_init(&info->cb_lock, NULL);
 
     *handle = (wifi_handle) info;
-
     wifi_add_membership(*handle, "scan");
     wifi_add_membership(*handle, "mlme");
     wifi_add_membership(*handle, "regulatory");
