@@ -134,7 +134,7 @@ public:
 
         int ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_GET_CAPABILITIES);
         if (ret < 0) {
-            ALOGD("NL message creation failed");
+            ALOGE("NL message creation failed");
             return ret;
         }
 
@@ -143,8 +143,6 @@ public:
 
 protected:
     virtual int handleResponse(WifiEvent& reply) {
-
-        ALOGD("In GetCapabilities::handleResponse");
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
@@ -157,7 +155,7 @@ protected:
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
 
-        ALOGD("Id = %0x, subcmd = %d, len = %d, expected len = %d", id, subcmd, len,
+        ALOGD("GetCapabilities::handleResponse - Id = %0x, subcmd = %d, len = %d, expected len = %d", id, subcmd, len,
                     sizeof(*mCapabilities));
 
         memcpy(mCapabilities, data, min(len, (int) sizeof(*mCapabilities)));
@@ -210,8 +208,6 @@ public:
 protected:
     virtual int handleResponse(WifiEvent& reply) {
 
-        ALOGD("In GetChannelList::handleResponse");
-
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
@@ -224,7 +220,7 @@ protected:
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
-        ALOGD("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+        ALOGD("GetChannelList::handleResponse - Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
         if (vendor_data == NULL || len == 0) {
             ALOGE("no vendor data in GetChannelList response; ignoring it");
             return NL_SKIP;
@@ -502,7 +498,7 @@ public:
 
         if(event_id == GSCAN_EVENT_COMPLETE_SCAN) {
             if (vendor_data == NULL || len != 4) {
-                ALOGD("Scan complete type not mentioned!");
+                ALOGE("Scan complete type not mentioned!");
                 return NL_SKIP;
             }
             wifi_scan_event evt_type;
@@ -652,7 +648,6 @@ public:
     }
 
     virtual int handleResponse(WifiEvent& reply) {
-        ALOGD("In GetScanResultsCommand::handleResponse");
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
@@ -662,7 +657,7 @@ public:
         int id = reply.get_vendor_id();
         int subcmd = reply.get_vendor_subcmd();
 
-        ALOGD("Id = %0x, subcmd = %d", id, subcmd);
+        ALOGD("GetScanResultsCommand::handleResponse - Id = %0x, subcmd = %d", id, subcmd);
 
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
@@ -859,7 +854,7 @@ public:
         int len = event.get_vendor_data_len();
 
         if (vendor_data == NULL || len == 0) {
-            ALOGD("No scan results found");
+            ALOGE("No scan results found");
             return NL_SKIP;
         }
 
@@ -1041,7 +1036,7 @@ public:
         int len = event.get_vendor_data_len();
 
         if (vendor_data == NULL || len == 0) {
-            ALOGD("No scan results found");
+            ALOGE("No scan results found");
             return NL_SKIP;
         }
 

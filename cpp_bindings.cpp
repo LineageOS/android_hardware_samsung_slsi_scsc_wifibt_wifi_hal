@@ -492,8 +492,6 @@ void WifiEvent::log() {
             ALOGD("found attribute %s", attributeToString(i));
         }
     }
-
-    ALOGD("-- End of message --");
 }
 
 const char *WifiEvent::get_cmdString() {
@@ -647,7 +645,6 @@ out:
 
 /* Event handlers */
 int WifiCommand::response_handler(struct nl_msg *msg, void *arg) {
-    ALOGD("response_handler called");
     WifiCommand *cmd = (WifiCommand *)arg;
     WifiEvent reply(msg);
     int res = reply.parse();
@@ -677,21 +674,18 @@ int WifiCommand::event_handler(struct nl_msg *msg, void *arg) {
 
 /* Other event handlers */
 int WifiCommand::valid_handler(struct nl_msg *msg, void *arg) {
-    ALOGD("valid_handler called");
     int *err = (int *)arg;
     *err = 0;
     return NL_SKIP;
 }
 
 int WifiCommand::ack_handler(struct nl_msg *msg, void *arg) {
-    ALOGD("ack_handler called");
     int *err = (int *)arg;
     *err = 0;
     return NL_STOP;
 }
 
 int WifiCommand::finish_handler(struct nl_msg *msg, void *arg) {
-    ALOGD("finish_handler called");
     int *ret = (int *)arg;
     *ret = 0;
     return NL_SKIP;
