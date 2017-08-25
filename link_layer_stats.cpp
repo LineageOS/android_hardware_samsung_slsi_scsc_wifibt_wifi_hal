@@ -118,7 +118,6 @@ public:
             return result;
         }
 
-        ALOGD("Successfully set Link Layer Statistics measurement");
         return result;
     }
 
@@ -137,7 +136,6 @@ public:
             return result;
         }
 
-        ALOGD("Successfully clear Link Layer Statistics measurement");
         return result;
     }
 
@@ -187,8 +185,6 @@ public:
     }
 
     virtual int create() {
-        ALOGI("Creating message to get link statistics");
-
         int ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_LLS_GET_INFO);
         if (ret < 0) {
             ALOGE("Failed to create %x - %d", SLSI_NL80211_VENDOR_SUBCMD_LLS_GET_INFO, ret);
@@ -200,9 +196,6 @@ public:
 
 protected:
     virtual int handleResponse(WifiEvent& reply) {
-
-        ALOGI("In GetLinkStatsCommand::handleResponse");
-
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
@@ -210,8 +203,6 @@ protected:
 
         int id = reply.get_vendor_id();
         int subcmd = reply.get_vendor_subcmd();
-
-        ALOGI("Id = %0x, subcmd = %d", id, subcmd);
 
         u8 *data = (u8 *)reply.get_vendor_data();
         int len = reply.get_vendor_data_len();

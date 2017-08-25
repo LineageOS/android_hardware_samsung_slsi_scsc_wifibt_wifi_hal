@@ -507,7 +507,6 @@ int WifiEvent::parse() {
     int result = nla_parse(mAttributes, NL80211_ATTR_MAX_INTERNAL, genlmsg_attrdata(mHeader, 0),
           genlmsg_attrlen(mHeader, 0), NULL);
 
-    ALOGD("event len = %d", nlmsg_hdr(mMsg)->nlmsg_len);
     return result;
 }
 
@@ -592,8 +591,6 @@ out:
 
 int WifiCommand::requestEvent(int cmd) {
 
-    ALOGD("requesting event %d", cmd);
-
     int res = wifi_register_handler(wifiHandle(), cmd, event_handler, this);
     if (res < 0) {
         return res;
@@ -603,13 +600,10 @@ int WifiCommand::requestEvent(int cmd) {
     if (res < 0)
         goto out;
 
-    ALOGD("waiting for response %d", cmd);
-
     res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());    /* send message */
     if (res < 0)
         goto out;
 
-    ALOGD("waiting for event %d", cmd);
     res = mCondition.wait();
     if (res < 0)
         goto out;
@@ -695,6 +689,6 @@ int WifiCommand::error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, vo
     int *ret = (int *)arg;
     *ret = err->error;
 
-    ALOGD("error_handler received : %d", err->error);
+    /*ALOGD("error_handler received : %d", err->error);*/
     return NL_SKIP;
 }

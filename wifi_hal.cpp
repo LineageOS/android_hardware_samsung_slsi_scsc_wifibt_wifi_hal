@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netlink/genl/genl.h>
@@ -72,7 +73,6 @@ void wifi_socket_set_local_port(struct nl_sock *sock, uint32_t port)
 
 static nl_sock * wifi_create_nl_socket(int port)
 {
-     ALOGI("Creating socket");
     struct nl_sock *sock = nl_socket_alloc();
     if (sock == NULL) {
         ALOGE("Could not create handle");
@@ -81,7 +81,6 @@ static nl_sock * wifi_create_nl_socket(int port)
 
     wifi_socket_set_local_port(sock, port);
 
-    ALOGI("Connecting socket");
     if (nl_connect(sock, NETLINK_GENERIC)) {
         ALOGE("Could not connect handle");
         nl_socket_free(sock);
@@ -148,7 +147,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
 
     memset(info, 0, sizeof(*info));
 
-    ALOGI("Creating socket");
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, info->cleanup_socks) == -1) {
         ALOGE("Could not create cleanup sockets");
         free(info);
@@ -209,20 +207,25 @@ wifi_error wifi_initialize(wifi_handle *handle)
     pthread_mutex_init(&info->cb_lock, NULL);
 
     *handle = (wifi_handle) info;
-	    ALOGD("wifi_initialize, handle = %p\n", handle);
-	    ALOGD("wifi_initialize, *handle = %p\n", *handle);
-		ALOGD("wifi_initialize, info = %p\n", info);
-		ALOGD("wifi_initialize, *info = %pn", *info);
+
     wifi_add_membership(*handle, "scan");
     wifi_add_membership(*handle, "mlme");
     wifi_add_membership(*handle, "regulatory");
     wifi_add_membership(*handle, "vendor");
 
     wifi_init_interfaces(*handle);
-     ALOGD("Found %d interfaces", info->num_interfaces);
+    char intf_name_buff[10 * 10 + 4]; /* Randomly choosen max interface 10. each interface name max 9 + 1(for space) */
+    char *pos = intf_name_buff;
+    for (int i = 0; i < (info->num_interfaces < 10 ? info->num_interfaces : 10); i++) {
+        strncpy(pos, info->interfaces[i]->name, sizeof(intf_name_buff) - (pos - intf_name_buff));
+        pos += strlen(pos);
+    }
+    if (info->num_interfaces > 10) {
+        strncpy(pos, "...", 3);
+    }
 
+    ALOGD("Found %d interfaces[%s]. Initialized Wifi HAL Successfully", info->num_interfaces, intf_name_buff);
 
-    ALOGI("Initialized Wifi HAL Successfully; vendor cmd = %d", NL80211_CMD_VENDOR);
     return WIFI_SUCCESS;
 }
 
@@ -240,8 +243,6 @@ static int wifi_add_membership(wifi_handle handle, const char *group)
     if (ret < 0) {
         ALOGE("Could not add membership to group %s", group);
     }
-
-     ALOGI("Successfully added membership for group %s", group);
     return ret;
 }
 
@@ -262,8 +263,6 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     (*cleaned_up_handler)(handle);
     pthread_mutex_destroy(&info->cb_lock);
     free(info);
-
-    ALOGI("Internal cleanup completed");
 }
 
 void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
@@ -283,9 +282,7 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
         memset(buf, 0, sizeof(buf));
         int result = read(info->cleanup_socks[0], buf, sizeof(buf));
         ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result, errno);
-        if (strncmp(buf, "Done", 4) == 0) {
-            ALOGE("Event processing terminated");
-        } else {
+        if (strncmp(buf, "Done", 4) != 0) {
             ALOGD("Rx'ed %s", buf);
         }
     }
@@ -322,10 +319,8 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 static int internal_pollin_handler(wifi_handle handle)
 {
     hal_info *info = getHalInfo(handle);
-		ALOGI("even_loop info = %p", info);
     struct nl_cb *cb = nl_socket_get_cb(info->event_sock);
     int res = nl_recvmsgs(info->event_sock, cb);
-     ALOGD("nl_recvmsgs returned %d", res);
     nl_cb_put(cb);
     return res;
 }
@@ -334,8 +329,6 @@ static int internal_pollin_handler(wifi_handle handle)
 void wifi_event_loop(wifi_handle handle)
 {
     hal_info *info = getHalInfo(handle);
-	ALOGI("even_loop info = %p", info);
-	ALOGI("even_loop info = %p", handle);
     if (info->in_event_loop) {
         return;
     } else {
@@ -359,9 +352,9 @@ void wifi_event_loop(wifi_handle handle)
         int result = poll(pfd, 2, timeout);
         if (result < 0) {
         } else if (pfd[0].revents & POLLERR) {
-            ALOGE("POLL Error; error no = %d", errno);
+            int prev_err = (int)errno;
             int result2 = read(pfd[0].fd, buf, sizeof(buf));
-            ALOGE("Read after POLL returned %d, error no = %d", result2, errno);
+            ALOGE("Poll err:%d | Read after POLL returned %d, error no = %d", prev_err, result2, errno);
         } else if (pfd[0].revents & POLLHUP) {
             ALOGE("Remote side hung up");
             break;
@@ -384,7 +377,6 @@ void wifi_event_loop(wifi_handle handle)
             ALOGE("Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
         }
     } while (!info->clean_up);
-    ALOGI("Exit %s", __FUNCTION__);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -398,8 +390,6 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
 {
     wifi_handle handle = (wifi_handle)arg;
     hal_info *info = getHalInfo(handle);
-   ALOGI("even_loop info = %p", handle);
-   ALOGD("internal_valid_message_handler, info = %p", info);
 
     WifiEvent event(msg);
     int res = event.parse();
@@ -417,16 +407,12 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
         subcmd = event.get_u32(NL80211_ATTR_VENDOR_SUBCMD);
         ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
                 event.get_cmdString(), vendor_id, subcmd);
-    } else {
-         ALOGI("event received %s", event.get_cmdString());
     }
 
      //ALOGI("event received %s, vendor_id = 0x%0x", event.get_cmdString(), vendor_id);
      //event.log();
 
     pthread_mutex_lock(&info->cb_lock);
-
-    ALOGI("Number of events %d", info->num_event_cb);
 
     for (int i = 0; i < info->num_event_cb; i++) {
         if (cmd == info->event_cb[i].nl_cmd) {
@@ -484,7 +470,6 @@ public:
 
     virtual int create() {
         int nlctrlFamily = genl_ctrl_resolve(mInfo->cmd_sock, "nlctrl");
-        ALOGI("ctrl family = %d", nlctrlFamily);
         int ret = mMsg.create(nlctrlFamily, CTRL_CMD_GETFAMILY, 0, 0);
         if (ret < 0) {
             return ret;
@@ -494,9 +479,6 @@ public:
     }
 
     virtual int handleResponse(WifiEvent& reply) {
-
-         ALOGE("handling reponse in %s", __func__);
-
         struct nlattr **tb = reply.attributes();
         struct nlattr *mcgrp = NULL;
         int i;
@@ -504,13 +486,10 @@ public:
         if (!tb[CTRL_ATTR_MCAST_GROUPS]) {
             ALOGE("No multicast groups found");
             return NL_SKIP;
-        } else {
-             ALOGE("Multicast groups attr size = %d", nla_len(tb[CTRL_ATTR_MCAST_GROUPS]));
         }
 
         for_each_attr(mcgrp, tb[CTRL_ATTR_MCAST_GROUPS], i) {
 
-             ALOGE("Processing group");
             struct nlattr *tb2[CTRL_ATTR_MCAST_GRP_MAX + 1];
             nla_parse(tb2, CTRL_ATTR_MCAST_GRP_MAX, (nlattr *)nla_data(mcgrp),
                 nla_len(mcgrp), NULL);
@@ -520,8 +499,6 @@ public:
 
             char *grpName = (char *)nla_data(tb2[CTRL_ATTR_MCAST_GRP_NAME]);
             int grpNameLen = nla_len(tb2[CTRL_ATTR_MCAST_GRP_NAME]);
-
-             ALOGE("Found group name %s", grpName);
 
             if (strncmp(grpName, mGroup, grpNameLen) != 0)
                 continue;
@@ -568,7 +545,6 @@ public:
     }
 
     int start() {
-        ALOGD("Sending mac address OUI");
         WifiRequest request(familyId(), ifaceId());
         int result = createRequest(request, SLSI_NL80211_VENDOR_SUBCMD_SET_GSCAN_OUI, mOui);
         if (result != WIFI_SUCCESS) {
@@ -585,7 +561,6 @@ public:
     }
 protected:
     virtual int handleResponse(WifiEvent& reply) {
-         ALOGD("Request complete!");
         /* Nothing to do on response! */
         return NL_SKIP;
     }
@@ -643,7 +618,7 @@ public:
         if (result < 0) {
             return result;
         }
-        ALOGD("create request");
+
         result = request.put_u8(RSSI_MONITOR_ATTRIBUTE_MIN_RSSI, (enable? mMin_rssi: 0));
         if (result < 0) {
             return result;
@@ -670,7 +645,6 @@ public:
         ALOGI("Successfully set RSSI monitoring");
         registerVendorHandler(GOOGLE_OUI, WIFI_RSSI_REPORT_EVENT);
 
-        ALOGI("Done!");
         return result;
     }
 
@@ -696,7 +670,6 @@ public:
     }
 
    virtual int handleEvent(WifiEvent& event) {
-        ALOGI("Got a RSSI monitor event");
 
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = event.get_vendor_data_len();
@@ -833,15 +806,12 @@ static int get_interface(const char *name, interface_info *info)
 {
     strcpy(info->name, name);
     info->id = if_nametoindex(name);
-     ALOGI("found an interface : %s, id = %d", name, info->id);
     return WIFI_SUCCESS;
 }
 
 wifi_error wifi_init_interfaces(wifi_handle handle)
 {
     hal_info *info = (hal_info *)handle;
-	ALOGD("wifi_init_interfaces, info = %p", info);
-
     struct dirent *de;
 
     DIR *d = opendir("/sys/class/net");

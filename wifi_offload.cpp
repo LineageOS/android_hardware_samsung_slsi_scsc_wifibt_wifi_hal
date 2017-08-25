@@ -174,7 +174,6 @@ public:
     }
 
     virtual int handleResponse(WifiEvent& reply) {
-        ALOGD("In MKeepAliveCommand::handleResponse");
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
