@@ -65,8 +65,9 @@ wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_
         info->event_cb[info->num_event_cb].vendor_subcmd  = 0;
         info->event_cb[info->num_event_cb].cb_func = func;
         info->event_cb[info->num_event_cb].cb_arg  = arg;
+        /*
         ALOGI("Successfully added event handler %p:%p for command %d at %d",
-                arg, func, cmd, info->num_event_cb);
+                arg, func, cmd, info->num_event_cb);*/
         info->num_event_cb++;
         result = WIFI_SUCCESS;
     }
@@ -83,19 +84,20 @@ wifi_error wifi_register_vendor_handler(wifi_handle handle,
 //ALOGD("GSCAN register handle wifi_register_vendor_handler %p", handle);
     /* TODO: check for multiple handlers? */
     pthread_mutex_lock(&info->cb_lock);
-        ALOGI("Added event handler %p", info);
+    //ALOGI("Added event handler %p", info);
 
     wifi_error result = WIFI_ERROR_OUT_OF_MEMORY;
 
-	//    ALOGD("register_vendor_handler: handle = %p", handle);
+    //    ALOGD("register_vendor_handler: handle = %p", handle);
     if (info->num_event_cb < info->alloc_event_cb) {
         info->event_cb[info->num_event_cb].nl_cmd  = NL80211_CMD_VENDOR;
         info->event_cb[info->num_event_cb].vendor_id  = id;
         info->event_cb[info->num_event_cb].vendor_subcmd  = subcmd;
         info->event_cb[info->num_event_cb].cb_func = func;
         info->event_cb[info->num_event_cb].cb_arg  = arg;
+        /*
         ALOGI("Added event handler %p:%p for vendor 0x%0x and subcmd 0x%0x at %d",
-                arg, func, id, subcmd, info->num_event_cb);
+                arg, func, id, subcmd, info->num_event_cb);*/
         info->num_event_cb++;
         result = WIFI_SUCCESS;
     }
@@ -117,8 +119,9 @@ void wifi_unregister_handler(wifi_handle handle, int cmd)
 
     for (int i = 0; i < info->num_event_cb; i++) {
         if (info->event_cb[i].nl_cmd == cmd) {
+            /*
             ALOGI("Successfully removed event handler %p:%p for cmd = 0x%0x from %d",
-                    info->event_cb[i].cb_arg, info->event_cb[i].cb_func, cmd, i);
+                    info->event_cb[i].cb_arg, info->event_cb[i].cb_func, cmd, i);*/
 
             memmove(&info->event_cb[i], &info->event_cb[i+1],
                 (info->num_event_cb - i - 1) * sizeof(cb_info));
@@ -141,8 +144,9 @@ void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
         if (info->event_cb[i].nl_cmd == NL80211_CMD_VENDOR
                 && info->event_cb[i].vendor_id == id
                 && info->event_cb[i].vendor_subcmd == subcmd) {
+            /*
             ALOGI("Successfully removed event handler %p:%p for vendor 0x%0x, subcmd 0x%0x from %d",
-                    info->event_cb[i].cb_arg, info->event_cb[i].cb_func, id, subcmd, i);
+                    info->event_cb[i].cb_arg, info->event_cb[i].cb_func, id, subcmd, i);*/
             memmove(&info->event_cb[i], &info->event_cb[i+1],
                 (info->num_event_cb - i - 1) * sizeof(cb_info));
             info->num_event_cb--;
@@ -158,14 +162,14 @@ wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd)
 {
     hal_info *info = (hal_info *)handle;
 
-    ALOGD("registering command %d", id);
+    //ALOGD("registering command %d", id);
 
     wifi_error result = WIFI_ERROR_OUT_OF_MEMORY;
 
     if (info->num_cmd < info->alloc_cmd) {
         info->cmd[info->num_cmd].id   = id;
         info->cmd[info->num_cmd].cmd  = cmd;
-        ALOGI("Successfully added command %d: %p at %d", id, cmd, info->num_cmd);
+        //ALOGI("Successfully added command %d: %p at %d", id, cmd, info->num_cmd);
         info->num_cmd++;
         result = WIFI_SUCCESS;
     }
@@ -177,7 +181,7 @@ WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id)
 {
     hal_info *info = (hal_info *)handle;
 
-    ALOGD("un-registering command %d", id);
+    //ALOGD("un-registering command %d", id);
 
     WifiCommand *cmd = NULL;
 
@@ -186,7 +190,7 @@ WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id)
             cmd = info->cmd[i].cmd;
             memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
             info->num_cmd--;
-            ALOGI("Successfully removed command %d: %p from %d", id, cmd, i);
+            //ALOGI("Successfully removed command %d: %p from %d", id, cmd, i);
             break;
         }
     }
@@ -219,7 +223,7 @@ void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd)
             int id = info->cmd[i].id;
             memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
             info->num_cmd--;
-            ALOGI("Successfully removed command %d: %p from %d", id, cmd, i);
+            //ALOGI("Successfully removed command %d: %p from %d", id, cmd, i);
             break;
         }
     }
@@ -230,7 +234,7 @@ wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface)
 	wifi_handle handle = getWifiHandle(iface);
 
 	WifiCommand *cmd = wifi_unregister_cmd(handle, id);
-	ALOGD("Cancel WifiCommand = %p", cmd);
+	//ALOGD("Cancel WifiCommand = %p", cmd);
 	if (cmd) {
 		cmd->cancel();
 		cmd->releaseRef();

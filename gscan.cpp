@@ -143,7 +143,7 @@ protected:
     virtual int handleResponse(WifiEvent& reply) {
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
-            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            ALOGE("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
         }
 
@@ -202,7 +202,7 @@ protected:
     virtual int handleResponse(WifiEvent& reply) {
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
-            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            ALOGE("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
         }
 
@@ -477,7 +477,7 @@ public:
     }
 
     virtual int handleEvent(WifiEvent& event) {
-        event.log();
+        //event.log();
 
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         unsigned int len = event.get_vendor_data_len();
@@ -507,7 +507,7 @@ public:
             if (scan_result) {
                 if(*mHandler.on_full_scan_result)
                     (*mHandler.on_full_scan_result)(id(), scan_result, bucket_scanned);
-
+/*
                     ALOGD("%-32s\t", scan_result->ssid);
                     ALOGD("%02x:%02x:%02x:%02x:%02x:%02x ", scan_result->bssid[0], scan_result->bssid[1],
                             scan_result->bssid[2], scan_result->bssid[3], scan_result->bssid[4], scan_result->bssid[5]);
@@ -516,6 +516,7 @@ public:
                     ALOGD("%lld\t", scan_result->ts);
                     ALOGD("%lld\t", scan_result->rtt);
                     ALOGD("%lld\n", scan_result->rtt_sd);
+*/
             }
         }
         return NL_SKIP;
@@ -635,7 +636,7 @@ public:
     virtual int handleResponse(WifiEvent& reply) {
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
-            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            ALOGE("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
         }
 
@@ -653,19 +654,19 @@ public:
         for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
             if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS_COMPLETE) {
                 mCompleted = it.get_u8();
-                ALOGD("retrieved mCompleted flag : %d", mCompleted);
+                //ALOGD("retrieved mCompleted flag : %d", mCompleted);
             } else if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS || it.get_type() == 0) {
                 int scan_id = 0, flags = 0, num = 0;
                 for (nl_iterator it2(it.get()); it2.has_next(); it2.next()) {
                     if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_ID) {
                         scan_id = it2.get_u32();
-                        ALOGD("retrieved scan_id : 0x%0x", scan_id);
+                        //ALOGD("retrieved scan_id : 0x%0x", scan_id);
                     } else if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_FLAGS) {
                         flags = it2.get_u8();
-                        ALOGD("retrieved scan_flags : 0x%0x", flags);
+                        //ALOGD("retrieved scan_flags : 0x%0x", flags);
                     } else if (it2.get_type() == GSCAN_ATTRIBUTE_NUM_OF_RESULTS) {
                         num = it2.get_u32();
-                        ALOGD("retrieved num_results: %d", num);
+                        //ALOGD("retrieved num_results: %d", num);
                     } else if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS) {
                         if (mRetrieved >= mMax) {
                             ALOGW("Stored %d scans, ignoring excess results", mRetrieved);
@@ -676,19 +677,19 @@ public:
                         num = min((int)MAX_AP_CACHE_PER_SCAN, num);
                         memcpy(mScanResults + mNextScanResult, it2.get_data(),
                                 sizeof(wifi_scan_result) * num);
-                        ALOGD("Retrieved %d scan results", num);
                         wifi_scan_result *results = (wifi_scan_result *)it2.get_data();
+                        /*
                         for (int i = 0; i < num; i++) {
                             wifi_scan_result *result = results + i;
                             ALOGD("%02d  %-32s  %02x:%02x:%02x:%02x:%02x:%02x  %04d", i,
                                 result->ssid, result->bssid[0], result->bssid[1], result->bssid[2],
                                 result->bssid[3], result->bssid[4], result->bssid[5],
                                 result->rssi);
-                        }
+                        }*/
                         mScans[mRetrieved].scan_id = scan_id;
                         mScans[mRetrieved].flags = flags;
                         mScans[mRetrieved].num_results = num;
-                        ALOGD("Setting result of scan_id : 0x%0x", mScans[mRetrieved].scan_id);
+                        //ALOGD("Setting result of scan_id : 0x%0x", mScans[mRetrieved].scan_id);
                         memcpy(mScans[mRetrieved].results,
                                 &(mScanResults[mNextScanResult]), num * sizeof(wifi_scan_result));
                         mNextScanResult += num;
@@ -788,7 +789,7 @@ public:
 
         result = requestResponse(request);
         if (result < 0) {
-            ALOGD("Failed to execute hotlist setup request, result = %d", result);
+            ALOGE("Failed to execute hotlist setup request, result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
             return result;
@@ -826,7 +827,7 @@ public:
 
     virtual int handleEvent(WifiEvent& event) {
         int event_id = event.get_vendor_subcmd();
-        event.log();
+        //event.log();
 
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = event.get_vendor_data_len();
@@ -974,7 +975,7 @@ public:
 
         result = requestResponse(request);
         if (result < 0) {
-            ALOGD("failed to set significant wifi change %d", result);
+            ALOGE("failed to set significant wifi change %d", result);
             return result;
         }
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS);

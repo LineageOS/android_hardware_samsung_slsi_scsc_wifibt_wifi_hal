@@ -405,8 +405,9 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     if (cmd == NL80211_CMD_VENDOR) {
         vendor_id = event.get_u32(NL80211_ATTR_VENDOR_ID);
         subcmd = event.get_u32(NL80211_ATTR_VENDOR_SUBCMD);
+        /*
         ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
-                event.get_cmdString(), vendor_id, subcmd);
+                event.get_cmdString(), vendor_id, subcmd);*/
     }
 
      //ALOGI("event received %s, vendor_id = 0x%0x", event.get_cmdString(), vendor_id);

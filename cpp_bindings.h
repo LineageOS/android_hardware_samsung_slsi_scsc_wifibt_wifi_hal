@@ -261,7 +261,7 @@ public:
 
     virtual int create() {
         /* by default there is no way to cancel */
-        ALOGD("WifiCommand %p can't be created", this);
+        //ALOGD("WifiCommand %p can't be created", this);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
