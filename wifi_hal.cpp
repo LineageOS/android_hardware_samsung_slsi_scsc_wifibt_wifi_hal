@@ -526,6 +526,10 @@ public:
         : WifiCommand(handle, 0)
     {
         mOui = scan_oui;
+	fset = NULL;
+	feature_matrix = NULL;
+	fm_size = NULL;
+	set_size_max = 0;
     }
 
     int createRequest(WifiRequest& request, int subcmd, byte *scan_oui) {
