@@ -123,7 +123,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_reset_epno_list = wifi_reset_epno_list;
     fn->wifi_set_passpoint_list = wifi_set_passpoint_list;
     fn->wifi_reset_passpoint_list = wifi_reset_passpoint_list;
-    fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
+//    fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;  // TODO: (IP) make it build
     fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
     fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
     fn->wifi_set_link_stats = wifi_set_link_stats;

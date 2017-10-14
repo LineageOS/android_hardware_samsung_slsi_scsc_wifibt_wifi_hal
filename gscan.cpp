@@ -1423,6 +1423,8 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id, wifi_interface_handle i
     return result;
 }
 
+#if 0 // TODO: (IP) removed to make it build
+
 class BssidBlacklistCommand : public WifiCommand
 {
 private:
@@ -1488,3 +1490,4 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle if
     cmd->releaseRef();
     return result;
 }
+#endif
