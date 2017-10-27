@@ -200,13 +200,13 @@ protected:
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
         }
-
         int id = reply.get_vendor_id();
         int subcmd = reply.get_vendor_subcmd();
-
         u8 *data = (u8 *)reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
-
+        int num_radios = 0, i = 0;
+	 num_radios = data[0];
+	 data += sizeof(data[0]);
         // assuming max peers is 16
         wifi_iface_stat *iface_stat = (wifi_iface_stat *) malloc(sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * 16);
         if (!iface_stat) {
@@ -214,8 +214,10 @@ protected:
             return NL_SKIP;
         }
 
-        // max channel is 38 (14 2.4GHz and 24 5GHz)
-        wifi_radio_stat *radio_stat = (wifi_radio_stat *) malloc(sizeof(wifi_radio_stat) + sizeof(wifi_channel_stat) * 38);
+        // max channel is 39 (14 2.4GHz and 25 5GHz)
+	 wifi_radio_stat *radio_stat = (wifi_radio_stat *) malloc((num_radios * sizeof(wifi_radio_stat)) + sizeof(wifi_channel_stat) * 39);
+	 wifi_radio_stat *radio_stat2;
+	 radio_stat2 = radio_stat;
         if (!radio_stat) {
             ALOGE("Memory alloc failed for radio_stat in response handler!!!");
             free(iface_stat);
@@ -245,15 +247,16 @@ protected:
             memcpy(iface_stat->peer_info, data, sizeof(wifi_peer_info) * iface_stat->num_peers);
             data += sizeof(wifi_peer_info) * iface_stat->num_peers;
         }
-        memcpy(radio_stat, data, radio_data_len1);
-        data += radio_data_len1;
-        memcpy(&radio_stat->rx_time, data, radio_data_len2);
-        data += radio_data_len2;
-        memcpy(radio_stat->channels, data, sizeof(wifi_channel_stat)* radio_stat->num_channels);
-        radio_stat->num_tx_levels = 0;
-        radio_stat->tx_time_per_levels = NULL;
+	for (i = 0; i < num_radios; i++) {
+	 	memcpy(radio_stat2, data, sizeof(*radio_stat2));
+	 	data += sizeof(*radio_stat2);
+        	memcpy(radio_stat2->channels, data, sizeof(wifi_channel_stat)* radio_stat2->num_channels);
+		data += sizeof(wifi_channel_stat)* radio_stat2->num_channels;
+		radio_stat2=(wifi_radio_stat *) ((u8 *)radio_stat2+ sizeof(wifi_radio_stat) + 
+			    (sizeof(wifi_channel_stat) * radio_stat2->num_channels ));
+	}
         iface_stat->iface = iface;
-        (*mHandler.on_link_stats_results)(id, iface_stat, 1, radio_stat);
+        (*mHandler.on_link_stats_results)(id, iface_stat, num_radios, radio_stat);
         free(iface_stat);
         free(radio_stat);
         return NL_OK;
