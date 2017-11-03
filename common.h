@@ -16,6 +16,11 @@
 #define DEFAULT_CMD_SIZE        (64)
 #define DOT11_OUI_LEN             3
 
+typedef struct {
+	int num_bssid;
+	mac_addr bssids[MAX_BLACKLIST_BSSID];
+} wifi_bssid_params;
+
 /*
  Vendor OUI - This is a unique identifier that identifies organization. Lets
  code Android specific functions with Google OUI; although vendors can do more
@@ -25,6 +30,69 @@
 const uint32_t GOOGLE_OUI = 0x001A11;
 /* TODO: define vendor OUI here */
 
+typedef enum {
+
+    GSCAN_ATTRIBUTE_NUM_BUCKETS = 10,
+    GSCAN_ATTRIBUTE_BASE_PERIOD,
+    GSCAN_ATTRIBUTE_BUCKETS_BAND,
+    GSCAN_ATTRIBUTE_BUCKET_ID,
+    GSCAN_ATTRIBUTE_BUCKET_PERIOD,
+    GSCAN_ATTRIBUTE_BUCKET_NUM_CHANNELS,
+    GSCAN_ATTRIBUTE_BUCKET_CHANNELS,
+    GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN,
+    GSCAN_ATTRIBUTE_REPORT_THRESHOLD,
+    GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE,
+    GSCAN_ATTRIBUTE_REPORT_THRESHOLD_NUM_SCANS,
+    GSCAN_ATTRIBUTE_BAND = GSCAN_ATTRIBUTE_BUCKETS_BAND,
+
+    GSCAN_ATTRIBUTE_ENABLE_FEATURE = 20,
+    GSCAN_ATTRIBUTE_SCAN_RESULTS_COMPLETE,              /* indicates no more results */
+    GSCAN_ATTRIBUTE_REPORT_EVENTS,
+
+    /* remaining reserved for additional attributes */
+    GSCAN_ATTRIBUTE_NUM_OF_RESULTS = 30,
+    GSCAN_ATTRIBUTE_SCAN_RESULTS,                       /* flat array of wifi_scan_result */
+    GSCAN_ATTRIBUTE_NUM_CHANNELS,
+    GSCAN_ATTRIBUTE_CHANNEL_LIST,
+    GSCAN_ATTRIBUTE_SCAN_ID,
+    GSCAN_ATTRIBUTE_SCAN_FLAGS,
+    GSCAN_ATTRIBUTE_SCAN_BUCKET_BIT,
+
+    /* remaining reserved for additional attributes */
+
+    GSCAN_ATTRIBUTE_SSID = 40,
+    GSCAN_ATTRIBUTE_BSSID,
+    GSCAN_ATTRIBUTE_CHANNEL,
+    GSCAN_ATTRIBUTE_RSSI,
+    GSCAN_ATTRIBUTE_TIMESTAMP,
+    GSCAN_ATTRIBUTE_RTT,
+    GSCAN_ATTRIBUTE_RTTSD,
+
+    /* remaining reserved for additional attributes */
+
+    GSCAN_ATTRIBUTE_HOTLIST_BSSIDS = 50,
+    GSCAN_ATTRIBUTE_RSSI_LOW,
+    GSCAN_ATTRIBUTE_RSSI_HIGH,
+    GSCAN_ATTRIBUTE_HOTLIST_ELEM,
+    GSCAN_ATTRIBUTE_HOTLIST_FLUSH,
+    GSCAN_ATTRIBUTE_CHANNEL_NUMBER,
+
+    /* remaining reserved for additional attributes */
+    GSCAN_ATTRIBUTE_RSSI_SAMPLE_SIZE = 60,
+    GSCAN_ATTRIBUTE_LOST_AP_SAMPLE_SIZE,
+    GSCAN_ATTRIBUTE_MIN_BREACHING,
+    GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS,
+
+    GSCAN_ATTRIBUTE_BUCKET_STEP_COUNT = 70,
+    GSCAN_ATTRIBUTE_BUCKET_EXPONENT,
+    GSCAN_ATTRIBUTE_BUCKET_MAX_PERIOD,
+
+    GSCAN_ATTRIBUTE_NUM_BSSID,
+    GSCAN_ATTRIBUTE_BLACKLIST_BSSID,
+
+    GSCAN_ATTRIBUTE_MAX
+
+} GSCAN_ATTRIBUTE;
 
 /*
  This enum defines ranges for various commands; commands themselves

@@ -30,6 +30,7 @@
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
+#include "roam.h"
 
 
 #define WIFI_HAL_CMD_SOCK_PORT       644
@@ -123,13 +124,13 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_reset_epno_list = wifi_reset_epno_list;
     fn->wifi_set_passpoint_list = wifi_set_passpoint_list;
     fn->wifi_reset_passpoint_list = wifi_reset_passpoint_list;
-//    fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;  // TODO: (IP) make it build
     fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
     fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
     fn->wifi_set_link_stats = wifi_set_link_stats;
     fn->wifi_get_link_stats = wifi_get_link_stats;
     fn->wifi_clear_link_stats = wifi_clear_link_stats;
     fn->wifi_set_country_code = wifi_set_country_code;
+    fn->wifi_configure_roaming = wifi_configure_roaming;
 
     return WIFI_SUCCESS;
 }
