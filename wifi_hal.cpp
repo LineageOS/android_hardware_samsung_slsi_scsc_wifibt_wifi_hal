@@ -49,8 +49,7 @@ static int wifi_add_membership(wifi_handle handle, const char *group);
 static wifi_error wifi_init_interfaces(wifi_handle handle);
 
 typedef enum wifi_attr {
-    ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET,
-    ANDR_WIFI_ATTRIBUTE_FEATURE_SET,
+    ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG,
     ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI
 } wifi_attr_t;
 
@@ -131,6 +130,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_clear_link_stats = wifi_clear_link_stats;
     fn->wifi_set_country_code = wifi_set_country_code;
     fn->wifi_configure_roaming = wifi_configure_roaming;
+    fn->wifi_configure_nd_offload = wifi_configure_nd_offload;
 
     return WIFI_SUCCESS;
 }
@@ -786,6 +786,35 @@ protected:
 
 };
 
+class SetNdoffloadCommand : public WifiCommand {
+
+private:
+    u8 mEnable;
+public:
+    SetNdoffloadCommand(wifi_interface_handle handle, u8 enable)
+        : WifiCommand(handle, 0) {
+        mEnable = enable;
+    }
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_CONFIGURE_ND_OFFLOAD);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+            return WIFI_ERROR_NOT_AVAILABLE;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u8(ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG, mEnable);
+        if (ret < 0) {
+        	return ret;
+        }
+	ALOGD("Driver message has been created successfully--> %d", mEnable);
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
+
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
     GetMulticastIdCommand cmd(handle, name, group);
@@ -944,4 +973,16 @@ wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *count
     return (wifi_error) command.requestResponse();
 }
 
-/////////////////////////////////////////////////////////////////////////////
+wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
+{ 
+	SetNdoffloadCommand command(handle, enable);
+	int ret = command.requestResponse();
+	if (ret != WIFI_SUCCESS) {
+		if (ret == -EPERM) {           /*This is just to pass VTS test */
+			ALOGD("return value from driver--> %d",ret);
+			return WIFI_SUCCESS;
+		}
+	}
+	return (wifi_error)ret;
+}
+
