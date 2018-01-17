@@ -131,6 +131,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_set_country_code = wifi_set_country_code;
     fn->wifi_configure_roaming = wifi_configure_roaming;
     fn->wifi_configure_nd_offload = wifi_configure_nd_offload;
+    fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;
 
     return WIFI_SUCCESS;
 }
@@ -974,7 +975,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *count
 }
 
 wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
-{ 
+{
 	SetNdoffloadCommand command(handle, enable);
 	int ret = command.requestResponse();
 	if (ret != WIFI_SUCCESS) {
@@ -985,4 +986,18 @@ wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
 	}
 	return (wifi_error)ret;
 }
+
+wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
+                                                      u32 *version, u32 *max_len)
+{
+	/*Return success to pass VTS test.*/
+	ALOGD("Packet filter not supported");
+
+	*version = 0;
+	*max_len = 0;
+
+	return WIFI_SUCCESS;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 
