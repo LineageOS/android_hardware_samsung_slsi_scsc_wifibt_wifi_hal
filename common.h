@@ -123,6 +123,10 @@ typedef enum {
     ANDROID_NL80211_SUBCMD_LSTATS_RANGE_START = 0x1200,
     ANDROID_NL80211_SUBCMD_LSTATS_RANGE_END   = 0x12FF,
 
+    /* define all Logger related commands between 0x1400 and 0x14FF */
+    ANDROID_NL80211_SUBCMD_DEBUG_RANGE_START = 0x1400,
+    ANDROID_NL80211_SUBCMD_DEBUG_RANGE_END   = 0x14FF,
+
     /* define all wifi offload related commands between 0x1400 and 0x14FF */
     ANDROID_NL80211_SUBCMD_WIFI_OFFLOAD_RANGE_START = 0x1400,
     ANDROID_NL80211_SUBCMD_WIFI_OFFLOAD_RANGE_END   = 0x14FF,
@@ -172,7 +176,9 @@ typedef enum {
     WIFI_HANGED_EVENT,
     WIFI_EPNO_EVENT,
     WIFI_HOTSPOT_MATCH,
-    WIFI_RSSI_REPORT_EVENT
+    WIFI_RSSI_REPORT_EVENT,
+    ENHANCE_LOGGER_RING_EVENT,
+    ENHANCE_LOGGER_MEM_DUMP_EVENT
 
 } WIFI_EVENT;
 
@@ -253,6 +259,14 @@ wifi_interface_handle getIfaceHandle(interface_info *info);
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
 #define max(x, y)       ((x) > (y) ? (x) : (y))
+
+#define NULL_CHECK_RETURN(ptr, str, ret) \
+    do { \
+        if (!(ptr)) { \
+            ALOGE("%s(): null pointer - #ptr (%s)\n", __FUNCTION__, str); \
+            return ret; \
+        } \
+    } while (0)
 
 #endif
 

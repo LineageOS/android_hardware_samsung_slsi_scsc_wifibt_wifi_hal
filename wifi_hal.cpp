@@ -62,6 +62,8 @@ enum wifi_rssi_monitor_attr {
 static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
                         iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
 static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
+wifi_error (*wifi_get_wake_reason_stats)(wifi_interface_handle iface,
+                        WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
 
 /* Initialize/Cleanup */
 
@@ -132,6 +134,20 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_configure_roaming = wifi_configure_roaming;
     fn->wifi_configure_nd_offload = wifi_configure_nd_offload;
     fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;
+    fn->wifi_start_pkt_fate_monitoring = wifi_start_pkt_fate_monitoring;
+    fn->wifi_get_tx_pkt_fates = wifi_get_tx_pkt_fates;
+    fn->wifi_get_rx_pkt_fates = wifi_get_rx_pkt_fates;
+    fn->wifi_start_logging = wifi_start_logging;
+    fn->wifi_set_log_handler = wifi_set_log_handler;
+    fn->wifi_set_alert_handler= wifi_set_alert_handler;
+    fn->wifi_get_ring_buffers_status = wifi_get_ring_buffers_status;
+    fn->wifi_get_logger_supported_feature_set = wifi_get_logger_supported_feature_set;
+    fn->wifi_get_ring_data = wifi_get_ring_data;
+    fn->wifi_get_driver_version = wifi_get_driver_version;
+    fn->wifi_get_firmware_version = wifi_get_firmware_version;
+    fn->wifi_get_firmware_memory_dump = wifi_get_firmware_memory_dump;
+    fn->wifi_get_driver_memory_dump = wifi_get_driver_memory_dump;
+    fn->wifi_get_wake_reason_stats = wifi_get_wake_reason_stats;
 
     return WIFI_SUCCESS;
 }
