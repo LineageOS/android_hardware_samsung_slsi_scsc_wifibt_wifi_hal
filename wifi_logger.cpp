@@ -114,16 +114,16 @@ typedef enum {
 
 class DebugCommand : public WifiCommand
 {
-    char *mBuff;
-    int *mBuffSize;
-    u32 *mNumRings;
-    wifi_ring_buffer_status *mStatus;
-    unsigned int *mSupport;
-    u32 mVerboseLevel;
-    u32 mFlags;
-    u32 mMaxIntervalSec;
-    u32 mMinDataSize;
-    char *mRingName;
+    char *mBuff = NULL;
+    int *mBuffSize = NULL;
+    u32 *mNumRings = NULL;
+    wifi_ring_buffer_status *mStatus = NULL;
+    unsigned int *mSupport = NULL;
+    u32 mVerboseLevel = 0;
+    u32 mFlags = 0;
+    u32 mMaxIntervalSec = 0;
+    u32 mMinDataSize = 0;
+    char *mRingName = NULL;
     GetCmdType mType;
 
 public:
@@ -800,9 +800,9 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id, wifi_interface_handle if
 
 class PacketFateCommand: public WifiCommand
 {
-    void *mReportBufs;
-    size_t mNoReqFates;
-    size_t *mNoProvidedFates;
+    void *mReportBufs = NULL;
+    size_t mNoReqFates = 0;
+    size_t *mNoProvidedFates = NULL;
     PktFateReqType mReqType;
 
 public:
@@ -1000,15 +1000,19 @@ class MemoryDumpCommand: public WifiCommand
     int mBuffSize;
     char *mBuff;
     GetCmdType mType;
-
+	
 public:
     MemoryDumpCommand(wifi_interface_handle iface, wifi_firmware_memory_dump_handler handler, GetCmdType cmdtype )
         : WifiCommand(iface, 0), mHandler(handler), mBuffSize(0), mBuff(NULL), mType(cmdtype)
-    { }
+    { 
+	memset(&mHandler,0,sizeof(wifi_firmware_memory_dump_handler));
+	}
 
     MemoryDumpCommand(wifi_interface_handle iface, wifi_driver_memory_dump_callbacks callback, GetCmdType cmdtype)
         : WifiCommand(iface, 0), mcallback(callback), mBuffSize(0), mBuff(NULL), mType(cmdtype)
-    { }
+    {
+	memset(&mcallback,0,sizeof(wifi_driver_memory_dump_callbacks));
+	}
 
      int createRequest(WifiRequest &request) {
         int result;
