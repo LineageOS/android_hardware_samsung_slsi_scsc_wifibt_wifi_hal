@@ -62,8 +62,7 @@ enum wifi_rssi_monitor_attr {
 static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
                         iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
 static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
-wifi_error (*wifi_get_wake_reason_stats)(wifi_interface_handle iface,
-                        WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
+wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface, WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
 
 /* Initialize/Cleanup */
 

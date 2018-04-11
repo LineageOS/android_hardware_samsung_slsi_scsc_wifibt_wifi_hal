@@ -978,6 +978,7 @@ wifi_error wifi_get_tx_pkt_fates(wifi_interface_handle handle,
     NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
     wifi_error result = (wifi_error)cmd->start();
     cmd->releaseRef();
+    memset(tx_report_bufs, 0, (n_requested_fates * sizeof(wifi_tx_report)));
     return result;
 }
 
@@ -990,6 +991,7 @@ wifi_error wifi_get_rx_pkt_fates(wifi_interface_handle handle,
     NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
     wifi_error result = (wifi_error)cmd->start();
     cmd->releaseRef();
+    memset(rx_report_bufs, 0, (n_requested_fates * sizeof(wifi_rx_report)));
     return result;
 }
 
