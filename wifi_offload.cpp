@@ -26,10 +26,6 @@
 #include "common.h"
 #include "cpp_bindings.h"
 
-#ifndef SLSI_WLAN_UNIT_TEST
-using namespace android;
-#endif
-
 typedef enum {
     MKEEP_ALIVE_ATTRIBUTE_ID,
     MKEEP_ALIVE_ATTRIBUTE_IP_PKT,
