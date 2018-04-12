@@ -933,7 +933,9 @@ wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle, int set_siz
 
 wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
 {
-    return WIFI_SUCCESS; /*Just to pass VTS.*/
+    SetPnoMacAddrOuiCommand command(handle, scan_oui);
+    return (wifi_error)command.start();
+
 }
 
 wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs)
