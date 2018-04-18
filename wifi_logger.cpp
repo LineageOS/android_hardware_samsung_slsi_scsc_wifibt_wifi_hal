@@ -1002,19 +1002,19 @@ class MemoryDumpCommand: public WifiCommand
     int mBuffSize;
     char *mBuff;
     GetCmdType mType;
-	
+
 public:
     MemoryDumpCommand(wifi_interface_handle iface, wifi_firmware_memory_dump_handler handler, GetCmdType cmdtype )
         : WifiCommand(iface, 0), mHandler(handler), mBuffSize(0), mBuff(NULL), mType(cmdtype)
-    { 
-	memset(&mHandler,0,sizeof(wifi_firmware_memory_dump_handler));
-	}
+    {
+        memset(&mcallback, 0, sizeof(wifi_driver_memory_dump_callbacks));
+    }
 
     MemoryDumpCommand(wifi_interface_handle iface, wifi_driver_memory_dump_callbacks callback, GetCmdType cmdtype)
         : WifiCommand(iface, 0), mcallback(callback), mBuffSize(0), mBuff(NULL), mType(cmdtype)
     {
-	memset(&mcallback,0,sizeof(wifi_driver_memory_dump_callbacks));
-	}
+        memset(&mHandler, 0, sizeof(wifi_firmware_memory_dump_handler));
+    }
 
      int createRequest(WifiRequest &request) {
         int result;
