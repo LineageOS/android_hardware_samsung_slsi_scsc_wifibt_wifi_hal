@@ -151,7 +151,7 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface, wifi_link_layer_para
     LinkLayerStatsCommand *command = new LinkLayerStatsCommand(iface, params);
     wifi_error result = (wifi_error)command->start();
     if (result != WIFI_SUCCESS) {
-        ALOGE("failed to Set link layer stats", result);
+        ALOGE("failed to Set link layer stats (result:%d)", result);
     }
     return result;
 }
@@ -162,7 +162,7 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
     LinkLayerStatsCommand *command = new LinkLayerStatsCommand(iface, stats_clear_req_mask, stats_clear_rsp_mask, stop_req, stop_rsp);
     wifi_error result = (wifi_error)command->clear();
     if (result != WIFI_SUCCESS) {
-        ALOGE("failed to Clear link layer stats", result);
+        ALOGE("failed to Clear link layer stats (result:%d)", result);
         *stats_clear_rsp_mask = 0;
         *stop_rsp = 0;
     } else {
