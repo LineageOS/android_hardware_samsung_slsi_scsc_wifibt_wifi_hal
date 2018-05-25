@@ -15,7 +15,8 @@ include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
-        external/libnl/include \
+        system/core/include/utils \
+	external/libnl/include \
         $(call include-path-for, libhardware_legacy)/hardware_legacy \
         external/wpa_supplicant_8/src/drivers
 
