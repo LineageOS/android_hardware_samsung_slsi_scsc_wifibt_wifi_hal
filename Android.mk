@@ -15,7 +15,7 @@ include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
-        system/core/include/utils \
+        system/core/include/ \
 	external/libnl/include \
         $(call include-path-for, libhardware_legacy)/hardware_legacy \
         external/wpa_supplicant_8/src/drivers
@@ -32,6 +32,7 @@ LOCAL_SRC_FILES := \
 	wifi_logger.cpp
 
 LOCAL_MODULE := libwifi-hal-slsi
+LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_STATIC_LIBRARY)
 
