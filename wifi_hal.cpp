@@ -72,6 +72,35 @@ void wifi_socket_set_local_port(struct nl_sock *sock, uint32_t port)
     nl_socket_set_local_port(sock, pid + (port << 22));
 }
 
+class SetNdoffloadCommand : public WifiCommand {
+
+private:
+    u8 mEnable;
+public:
+    SetNdoffloadCommand(wifi_interface_handle handle, u8 enable)
+        : WifiCommand(handle, 0) {
+        mEnable = enable;
+    }
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_CONFIGURE_ND_OFFLOAD);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+            return WIFI_ERROR_NOT_AVAILABLE;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u8(ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG, mEnable);
+        if (ret < 0) {
+        	return ret;
+        }
+	ALOGD("Driver message has been created successfully--> %d", mEnable);
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
+
 static nl_sock * wifi_create_nl_socket(int port)
 {
     struct nl_sock *sock = nl_socket_alloc();
@@ -89,6 +118,32 @@ static nl_sock * wifi_create_nl_socket(int port)
     }
 
     return sock;
+}
+
+
+wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
+{
+	SetNdoffloadCommand command(handle, enable);
+	int ret = command.requestResponse();
+	if (ret != WIFI_SUCCESS) {
+		if (ret == -EPERM) {           /*This is just to pass VTS test */
+			ALOGD("return value from driver--> %d",ret);
+			return WIFI_SUCCESS;
+		}
+	}
+	return (wifi_error)ret;
+}
+
+wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
+                                                      u32 *version, u32 *max_len)
+{
+	/*Return success to pass VTS test.*/
+	ALOGD("Packet filter not supported");
+
+	*version = 0;
+	*max_len = 0;
+
+	return WIFI_SUCCESS;
 }
 
 /* Initialize HAL function pointer table */
@@ -802,34 +857,7 @@ protected:
 
 };
 
-class SetNdoffloadCommand : public WifiCommand {
 
-private:
-    u8 mEnable;
-public:
-    SetNdoffloadCommand(wifi_interface_handle handle, u8 enable)
-        : WifiCommand(handle, 0) {
-        mEnable = enable;
-    }
-    virtual int create() {
-        int ret;
-
-        ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_CONFIGURE_ND_OFFLOAD);
-        if (ret < 0) {
-            ALOGE("Can't create message to send to driver - %d", ret);
-            return WIFI_ERROR_NOT_AVAILABLE;
-        }
-
-        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
-        ret = mMsg.put_u8(ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG, mEnable);
-        if (ret < 0) {
-        	return ret;
-        }
-	ALOGD("Driver message has been created successfully--> %d", mEnable);
-        mMsg.attr_end(data);
-        return WIFI_SUCCESS;
-    }
-};
 
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
@@ -989,30 +1017,6 @@ wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *count
     return (wifi_error) command.requestResponse();
 }
 
-wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
-{
-	SetNdoffloadCommand command(handle, enable);
-	int ret = command.requestResponse();
-	if (ret != WIFI_SUCCESS) {
-		if (ret == -EPERM) {           /*This is just to pass VTS test */
-			ALOGD("return value from driver--> %d",ret);
-			return WIFI_SUCCESS;
-		}
-	}
-	return (wifi_error)ret;
-}
-
-wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
-                                                      u32 *version, u32 *max_len)
-{
-	/*Return success to pass VTS test.*/
-	ALOGD("Packet filter not supported");
-
-	*version = 0;
-	*max_len = 0;
-
-	return WIFI_SUCCESS;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 
