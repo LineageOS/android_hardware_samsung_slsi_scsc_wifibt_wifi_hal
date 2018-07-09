@@ -380,9 +380,8 @@ public:
             case GET_FEATURE:
             {
                 void *data = reply.get_vendor_data();
-                int len = reply.get_vendor_data_len();
 
-                ALOGD("len = %d, expected len = %d", len, sizeof(unsigned int));
+                ALOGD("len = %d, expected len = %lu", reply.get_vendor_data_len(), (unsigned long)sizeof(unsigned int));
                 memcpy(mSupport, data, sizeof(unsigned int));
                 break;
             }
@@ -677,7 +676,6 @@ public:
     }
 
     virtual int handleEvent(WifiEvent& event) {
-        wifi_ring_buffer_id ring_id;
         char *buffer = NULL;
         int buffer_size = 0;
 
@@ -944,7 +942,7 @@ public:
         for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
             if (it.get_type() == ENHANCE_LOGGER_ATTRIBUTE_PKT_FATE_NUM) {
                 *mNoProvidedFates = it.get_u32();
-                ALOGI("No: of pkt fates provided is %d\n", *mNoProvidedFates);
+                ALOGI("No: of pkt fates provided is %zu\n", *mNoProvidedFates);
             } else {
                 ALOGE("Ignoring invalid attribute type = %d, size = %d\n",
                         it.get_type(), it.get_len());
@@ -1174,6 +1172,16 @@ public:
                            it.get_type(), it.get_len());
                      }
                  }
+	    case GET_FW_VER:
+            case GET_DRV_VER:
+            case GET_RING_DATA:
+            case GET_RING_STATUS:
+            case GET_FEATURE:
+            case START_RING_LOG:
+            default:
+                   {
+                          ALOGW("Ignoring GetCmdType %d \n", mType);
+                   }
             }
         return NL_OK;
     }

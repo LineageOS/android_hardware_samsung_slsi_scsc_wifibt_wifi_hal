@@ -41,7 +41,6 @@
 #define ATTR_NODFS_VALUE             3
 #define ATTR_COUNTRY_CODE            4
 
-static void internal_event_handler(wifi_handle handle, int events);
 static int internal_no_seq_check(nl_msg *msg, void *arg);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group);
@@ -840,9 +839,6 @@ public:
 protected:
     virtual int handleResponse(WifiEvent& reply) {
 
-        int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
-
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignore reply; cmd = %d", reply.get_cmd());
             return NL_SKIP;
@@ -1004,7 +1000,6 @@ static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_h
 
     if(id == -1) {
         wifi_rssi_event_handler handler;
-        wifi_handle handle = getWifiHandle(iface);
         memset(&handler, 0, sizeof(handler));
         SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface,
                                                     0, 0, handler);

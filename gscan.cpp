@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 #include <stddef.h>
 #include <fcntl.h>
@@ -81,9 +80,6 @@ protected:
             return NL_SKIP;
         }
 
-        int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
-
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
 
@@ -140,8 +136,6 @@ protected:
             return NL_SKIP;
         }
 
-        int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
         int num_channels_to_copy = 0;
 
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
@@ -182,6 +176,7 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
 
 /* helper functions */
 
+/*
 static int parseScanResults(wifi_scan_result *results, int num, nlattr *attr)
 {
     memset(results, 0, sizeof(wifi_scan_result) * num);
@@ -189,7 +184,6 @@ static int parseScanResults(wifi_scan_result *results, int num, nlattr *attr)
     int i = 0;
     for (nl_iterator it(attr); it.has_next() && i < num; it.next(), i++) {
 
-        int index = it.get_type();
         nlattr *sc_data = (nlattr *) it.get_data();
         wifi_scan_result *result = results + i;
 
@@ -221,6 +215,7 @@ static int parseScanResults(wifi_scan_result *results, int num, nlattr *attr)
 
     return i;
 }
+*/
 
 int createFeatureRequest(WifiRequest& request, int subcmd) {
 
@@ -237,12 +232,10 @@ class ScanCommand : public WifiCommand
     wifi_scan_cmd_params *mParams;
     wifi_scan_result_handler mHandler;
     static unsigned mGlobalFullScanBuckets;
-    bool mLocalFullScanBuckets;
 public:
     ScanCommand(wifi_interface_handle iface, int id, wifi_scan_cmd_params *params,
                 wifi_scan_result_handler handler)
-        : WifiCommand(iface, id), mParams(params), mHandler(handler),
-          mLocalFullScanBuckets(0)
+        : WifiCommand(iface, id), mParams(params), mHandler(handler)
     { }
 
     int createSetupRequest(WifiRequest& request) {
@@ -479,7 +472,6 @@ wifi_error wifi_stop_gscan(wifi_request_id id, wifi_interface_handle iface)
     if(id == -1) {
         wifi_scan_result_handler handler;
         wifi_scan_cmd_params dummy_params;
-        wifi_handle handle = getWifiHandle(iface);
         memset(&handler, 0, sizeof(handler));
 
         ScanCommand *cmd = new ScanCommand(iface, id, &dummy_params, handler);
@@ -574,9 +566,6 @@ public:
             return NL_SKIP;
         }
 
-        int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
-
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
@@ -611,8 +600,8 @@ public:
                         num = min((int)MAX_AP_CACHE_PER_SCAN, num);
                         memcpy(mScanResults + mNextScanResult, it2.get_data(),
                                 sizeof(wifi_scan_result) * num);
-                        wifi_scan_result *results = (wifi_scan_result *)it2.get_data();
                         /*
+                        wifi_scan_result *results = (wifi_scan_result *)it2.get_data();
                         for (int i = 0; i < num; i++) {
                             wifi_scan_result *result = results + i;
                             ALOGD("%02d  %-32s  %02x:%02x:%02x:%02x:%02x:%02x  %04d", i,
@@ -1148,7 +1137,6 @@ public:
     }
 
     virtual int handleEvent(WifiEvent& event) {
-        int event_id = event.get_vendor_subcmd();
         // event.log();
 
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);

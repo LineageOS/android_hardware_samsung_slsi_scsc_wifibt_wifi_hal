@@ -106,7 +106,6 @@ wifi_error wifi_configure_roaming(wifi_interface_handle iface, wifi_roaming_conf
     wifi_error ret;
     int requestId;
     wifi_bssid_params bssid_params;
-    wifi_handle wifiHandle = getWifiHandle(iface);
 
     if (!roaming_config) {
         ALOGE("%s: Invalid Buffer provided. Exit", __FUNCTION__);

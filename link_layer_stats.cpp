@@ -199,9 +199,7 @@ protected:
             return NL_SKIP;
         }
         int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
         u8 *data = (u8 *)reply.get_vendor_data();
-        int len = reply.get_vendor_data_len();
         int num_radios = 0, i = 0;
         num_radios = data[0];
         data += sizeof(data[0]);
