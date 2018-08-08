@@ -623,7 +623,7 @@ class NanCommand : public WifiCommand {
     int processNanDiscoveryEvent(WifiEvent &event) {
         NanDiscEngEventInd ind;
         memset(&ind,0,sizeof(ind));
-        u8 *addr;
+        u8 *addr = NULL;
 
         for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
@@ -638,10 +638,14 @@ class NanCommand : public WifiCommand {
                 return NL_SKIP;
             }
         }
-        if (ind.event_type == NAN_EVENT_ID_DISC_MAC_ADDR)
-            memcpy(ind.data.mac_addr.addr, addr, NAN_MAC_ADDR_LEN);
-        else
-            memcpy(ind.data.cluster.addr, addr, NAN_MAC_ADDR_LEN);
+        if (addr) {
+            if (ind.event_type == NAN_EVENT_ID_DISC_MAC_ADDR)
+                memcpy(ind.data.mac_addr.addr, addr, NAN_MAC_ADDR_LEN);
+            else
+                memcpy(ind.data.cluster.addr, addr, NAN_MAC_ADDR_LEN);
+        } else {
+            ALOGE("processNanDiscoveryEvent: No Mac/cluster Address");
+        }
 
         if (callbackEventHandler.EventDiscEngEvent)
             callbackEventHandler.EventDiscEngEvent(&ind);
