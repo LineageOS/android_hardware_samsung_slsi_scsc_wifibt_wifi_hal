@@ -287,7 +287,7 @@ class NanCommand : public WifiCommand {
     int processResponse(WifiEvent &reply, NanResponseMsg *response) {
         NanCapabilities *capabilities = &response->body.nan_capabilities;
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
-        int len = reply.get_vendor_data_len();
+        //int len = reply.get_vendor_data_len();
         unsigned int val;
 
         for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
