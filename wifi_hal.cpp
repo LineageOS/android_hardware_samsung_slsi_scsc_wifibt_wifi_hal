@@ -212,6 +212,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_nan_register_handler = nan_register_handler;
     fn->wifi_nan_get_version = nan_get_version;
     fn->wifi_nan_get_capabilities = nan_get_capabilities;
+    fn->wifi_get_roaming_capabilities = wifi_get_roaming_capabilities;
+    fn->wifi_enable_firmware_roaming = wifi_enable_firmware_roaming;
 
     return WIFI_SUCCESS;
 }
