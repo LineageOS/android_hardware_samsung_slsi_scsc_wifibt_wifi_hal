@@ -356,7 +356,7 @@ public:
 
         int nBuckets = 0;
         for (int i = 0; i < mParams->num_buckets; i++) {
-            if (mParams->buckets[i].report_events == 2) {
+            if (mParams->buckets[i].report_events & REPORT_EVENTS_FULL_RESULTS) {
                 nBuckets++;
             }
         }
