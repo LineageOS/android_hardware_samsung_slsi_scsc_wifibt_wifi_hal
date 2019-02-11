@@ -154,8 +154,10 @@ public:
     }
 
     RttCommand(wifi_interface_handle iface, int id)
-        : WifiCommand(iface, id)
+        : WifiCommand(iface, id), rtt_id(id), rttParams(NULL)
     {
+        rttHandler.on_rtt_results = NULL;
+        memset(rttResults, 0, sizeof(rttResults));
         currentIdx = 0;
         mCompleted = 0;
         totalCnt = 0;
