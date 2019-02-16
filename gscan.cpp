@@ -286,6 +286,9 @@ public:
                 return result;
             }
 
+            if (mParams->buckets[i].report_events == 0) {
+                mParams->buckets[i].report_events = REPORT_EVENTS_EACH_SCAN;
+            }
             result = request.put_u32(GSCAN_ATTRIBUTE_REPORT_EVENTS,
                     mParams->buckets[i].report_events);
             if (result < 0) {
@@ -419,7 +422,7 @@ public:
 
             evt_type = (wifi_scan_event) event.get_u32(NL80211_ATTR_VENDOR_DATA);
             if(*mHandler.on_scan_event)
-                (*mHandler.on_scan_event)(evt_type, evt_type);
+                (*mHandler.on_scan_event)(id(), evt_type);
         } else if(event_id == GSCAN_EVENT_FULL_SCAN_RESULTS) {
             uint32_t bucket_scanned = 0;
             wifi_scan_result *scan_result = NULL;
