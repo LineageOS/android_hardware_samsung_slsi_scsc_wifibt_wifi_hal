@@ -679,7 +679,15 @@ public:
             ALOGE("enable: request.attr_start fail");
             return WIFI_ERROR_OUT_OF_MEMORY;
         }
-        result = request.put_u8(NAN_REQ_ATTR_MASTER_PREF, msg->master_pref);
+        /* Valid master pref values are 2-254 */
+        int master_pref;
+        if (msg->master_pref < 2)
+            master_pref = 2;
+        else if (msg->master_pref > 254)
+            master_pref = 254;
+        else
+            master_pref = msg->master_pref;
+        result = request.put_u8(NAN_REQ_ATTR_MASTER_PREF, master_pref);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put master_pref");
 
         result = request.put_u16(NAN_REQ_ATTR_CLUSTER_LOW, msg->cluster_low);
@@ -789,7 +797,7 @@ public:
     }
 
     int config(NanConfigRequest *msg) {
-        ALOGD("config...");
+        ALOGD("NAN config...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_CONFIG);
@@ -907,7 +915,7 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to set_config; result = %d", result);
         } else {
-            ALOGD("config...success");
+            ALOGD("NAN config...success");
         }
         return result;
     }
@@ -923,7 +931,7 @@ public:
     }
 
     int publish(NanPublishRequest *msg) {
-        ALOGD("publish...");
+        ALOGD("NAN publish...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_PUBLISH);
@@ -994,13 +1002,13 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to publish; result = %d", result);
         } else {
-            ALOGD("publish...success");
+            ALOGD("NAN publish...success");
         }
         return result;
     }
 
     int publishCancel(NanPublishCancelRequest *msg) {
-        ALOGD("publishCancel...");
+        ALOGD("NAN publishCancel...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_PUBLISHCANCEL);
@@ -1020,14 +1028,14 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to publishCancel; result = %d", result);
         } else {
-            ALOGD("publishCancel...success");
+            ALOGD("NAN publishCancel...success");
         }
         return result;
 
     }
 
     int subscribe(NanSubscribeRequest *msg) {
-        ALOGD("subscribe...");
+        ALOGD("NAN subscribe...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_SUBSCRIBE);
@@ -1113,14 +1121,14 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to subscribe; result = %d", result);
         } else {
-            ALOGD("subscribe...success");
+            ALOGD("NAN subscribe...success");
         }
         return result;
 
     }
 
     int subscribeCancel(NanSubscribeCancelRequest *msg) {
-        ALOGD("subscribeCancel...");
+        ALOGD("NAN subscribeCancel...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_SUBSCRIBECANCEL);
@@ -1140,13 +1148,13 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to subscribeCancel; result = %d", result);
         } else {
-            ALOGD("subscribeCancel...success");
+            ALOGD("NAN subscribeCancel...success");
         }
         return result;
     }
 
     int followup(NanTransmitFollowupRequest *msg) {
-        ALOGD("followup...");
+        ALOGD("NAN followup...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_TXFOLLOWUP);
@@ -1187,14 +1195,14 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to followup; result = %d", result);
         } else {
-            ALOGD("followup...success");
+            ALOGD("NAN followup...success");
         }
         return result;
 
     }
 
     int getCapabilities(void) {
-        ALOGD("getCapabilities...");
+        ALOGD("NAN getCapabilities...");
         WifiRequest request(familyId(), ifaceId());
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_CAPABILITIES);
@@ -1204,14 +1212,14 @@ public:
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to getCapabilities; result = %d", result);
         } else {
-            ALOGD("getCapabilities...success");
+            ALOGD("NAN getCapabilities...success");
         }
         return result;
     }
 
     int handleEvent(WifiEvent &event) {
         int ret;
-        ALOGD("handleEvent...");
+        ALOGD("NAN handleEvent...");
 
         if (event.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring event with cmd = %d", event.get_cmd());
@@ -1252,17 +1260,12 @@ public:
     }
 
     int handleResponse(WifiEvent &reply) {
-        ALOGD("handleResponse...");
+        ALOGD("NAN handleResponse...");
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
             return NL_SKIP;
         }
-
-        int vendorId = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
-
-        ALOGI("Id = %0x, subcmd = %d", vendorId, subcmd);
 
         NanResponseMsg response;
         memset(&response, 0, sizeof(response));
