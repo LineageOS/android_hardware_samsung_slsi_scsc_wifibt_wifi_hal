@@ -475,7 +475,7 @@ class NanCommand : public WifiCommand {
                         break;
                     }
                 }
-		[[fallthrough]];
+                break;
             case NAN_EVT_ATTR_MATCH_CLUSTER_ATTRIBUTE_LEN:
                 ind.cluster_attribute_len = nl_itr.get_u8();
                 break;
@@ -484,7 +484,7 @@ class NanCommand : public WifiCommand {
                 break;
             }
         }
-        
+
         if (this->callbackEventHandler.EventMatch)
             this->callbackEventHandler.EventMatch(&ind);
         return NL_OK;
