@@ -132,7 +132,7 @@ static const strmap_entry_t err_info[] = {
 }*/
 class RttCommand : public WifiCommand
 {
-	int rtt_id;
+    int rtt_id;
     unsigned numTargetDevice;
     int mCompleted;
     int currentIdx;
@@ -416,11 +416,11 @@ public:
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_SUCCESS_NUM) {
                                          rtt_result->success_number = (unsigned)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_NUM_PER_BURST_PEER) {
-                                         rtt_result->number_per_burst_peer = (byte)nl_nested_itr.get_u8();
+                                         rtt_result->number_per_burst_peer = (unsigned char)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_STATUS) {
                                          rtt_result->status = (wifi_rtt_status)nl_nested_itr.get_u16();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_RETRY_AFTER_DURATION) {
-                                         rtt_result->retry_after_duration = (byte)nl_nested_itr.get_u8();
+                                         rtt_result->retry_after_duration = (unsigned char)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_TYPE) {
                                          rtt_result->type = (wifi_rtt_type)nl_nested_itr.get_u16();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_RSSI) {

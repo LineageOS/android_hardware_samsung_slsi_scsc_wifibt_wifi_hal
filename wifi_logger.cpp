@@ -1124,6 +1124,7 @@ public:
                            it.get_type(), it.get_len());
                      }
                  }
+		[[fallthrough]];
             case GET_DRIVER_DUMP :
                  for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
                      if (it.get_type() == ENHANCE_LOGGER_ATTRIBUTE_DRIVER_DUMP_LEN) {
@@ -1172,6 +1173,7 @@ public:
                            it.get_type(), it.get_len());
                      }
                  }
+		 [[fallthrough]];
 	    case GET_FW_VER:
             case GET_DRV_VER:
             case GET_RING_DATA:
