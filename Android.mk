@@ -12,7 +12,7 @@ LOCAL_PATH := $(call my-dir)
 # ============================================================
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS := -Wno-unused-parameter -ggdb
+LOCAL_CFLAGS := -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
         system/core/include/ \
