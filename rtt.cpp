@@ -32,10 +32,7 @@ typedef enum {
     SLSI_RTT_ATTRIBUTE_TARGET_MAC,
     SLSI_RTT_ATTRIBUTE_TARGET_TYPE,
     SLSI_RTT_ATTRIBUTE_TARGET_PEER,
-    SLSI_RTT_ATTRIBUTE_TARGET_CHAN_WIDTH,
     SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ,
-    SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ0,
-    SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ1,
     SLSI_RTT_ATTRIBUTE_TARGET_PERIOD,
     SLSI_RTT_ATTRIBUTE_TARGET_NUM_BURST,
     SLSI_RTT_ATTRIBUTE_TARGET_NUM_FTM_BURST,
@@ -201,21 +198,6 @@ public:
             	}
 		result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ, rttParams[i].channel.center_freq);
 			ALOGI("\trtt_ primary channel_freq %d\n",rttParams[i].channel.center_freq);
-            if (result < 0) {
-                return result;
-            }
-		result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_CHAN_WIDTH, rttParams[i].channel.width);
-			ALOGI("\trtt_channel width:%d\n",rttParams[i].channel.width);
-            if (result < 0) {
-                return result;
-            }
-		result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ0, rttParams[i].channel.center_freq0);
-			ALOGI("\trtt_channel_freq 0:%d\n",rttParams[i].channel.center_freq0);
-            if (result < 0) {
-                return result;
-            }
-		result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_CHAN_FREQ1, rttParams[i].channel.center_freq1);
-			ALOGI("\trtt_channel_freq 1: %d\n",rttParams[i].channel.center_freq1);
             if (result < 0) {
                 return result;
             }
@@ -462,7 +444,7 @@ public:
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_TIMESTAMP_US) {
                                          rtt_result->ts = (wifi_timestamp)nl_nested_itr.get_u32();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_BURST_DURATION_MSN) {
-                                         rtt_result->burst_duration = nl_nested_itr.get_u16();
+                                         rtt_result->burst_duration = nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_NEGOTIATED_BURST_NUM) {
                                          rtt_result->negotiated_burst_num = nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_LCI) {

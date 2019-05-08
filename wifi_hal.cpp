@@ -162,10 +162,6 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_start_gscan = wifi_start_gscan;
     fn->wifi_stop_gscan = wifi_stop_gscan;
     fn->wifi_get_cached_gscan_results = wifi_get_cached_gscan_results;
-    fn->wifi_set_bssid_hotlist = wifi_set_bssid_hotlist;
-    fn->wifi_reset_bssid_hotlist = wifi_reset_bssid_hotlist;
-    fn->wifi_set_significant_change_handler = wifi_set_significant_change_handler;
-    fn->wifi_reset_significant_change_handler = wifi_reset_significant_change_handler;
     fn->wifi_get_gscan_capabilities = wifi_get_gscan_capabilities;
     fn->wifi_get_valid_channels = wifi_get_valid_channels;
     fn->wifi_rtt_range_request = wifi_rtt_range_request;
