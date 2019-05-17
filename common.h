@@ -128,6 +128,13 @@ typedef enum {
     SLSI_NL80211_VENDOR_SUBCMD_ADD_GSCAN,
     SLSI_NL80211_VENDOR_SUBCMD_DEL_GSCAN,
     SLSI_NL80211_VENDOR_SUBCMD_GET_SCAN_RESULTS,
+    /**********Deprecated now due to fapi updates.Do not remove*/
+    SLSI_NL80211_VENDOR_SUBCMD_SET_BSSID_HOTLIST,
+    SLSI_NL80211_VENDOR_SUBCMD_RESET_BSSID_HOTLIST,
+    SLSI_NL80211_VENDOR_SUBCMD_GET_HOTLIST_RESULTS,
+    SLSI_NL80211_VENDOR_SUBCMD_SET_SIGNIFICANT_CHANGE,
+    SLSI_NL80211_VENDOR_SUBCMD_RESET_SIGNIFICANT_CHANGE,
+    /******************************************/
     SLSI_NL80211_VENDOR_SUBCMD_SET_GSCAN_OUI,
     SLSI_NL80211_VENDOR_SUBCMD_SET_NODFS,
     SLSI_NL80211_VENDOR_SUBCMD_START_KEEP_ALIVE_OFFLOAD,
@@ -161,9 +168,16 @@ typedef enum {
 } WIFI_SUB_COMMAND;
 
 typedef enum {
+    /**********Deprecated now due to fapi updates.Do not remove*/
+    GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS ,
+    GSCAN_EVENT_HOTLIST_RESULTS_FOUND,
+    /******************************************/
     GSCAN_EVENT_SCAN_RESULTS_AVAILABLE,
     GSCAN_EVENT_FULL_SCAN_RESULTS,
     GSCAN_EVENT_COMPLETE_SCAN,
+    /**********Deprecated now due to fapi updates.Do not remove*/
+    GSCAN_EVENT_HOTLIST_RESULTS_LOST,
+    /******************************************/
     WIFI_SUBCMD_KEY_MGMT_ROAM_AUTH, /* Handled by supplicant. not in Wifi-HAL */
     WIFI_HANGED_EVENT,
     WIFI_EPNO_EVENT,
