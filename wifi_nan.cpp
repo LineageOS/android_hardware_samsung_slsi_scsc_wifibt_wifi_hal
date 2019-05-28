@@ -178,25 +178,32 @@ typedef enum {
     NAN_REQ_ATTR_FOLLOWUP_SERVICE_NAME,
     NAN_REQ_ATTR_FOLLOWUP_TX_WINDOW,
     NAN_REQ_ATTR_FOLLOWUP_RECV_IND_CFG,
+    NAN_REQ_ATTR_SUBSCRIBE_SID_BEACON_VAL,
+    NAN_REQ_ATTR_DW_2G4_INTERVAL,
+    NAN_REQ_ATTR_DW_5G_INTERVAL,
+    NAN_REQ_ATTR_DISC_MAC_ADDR_RANDOM_INTERVAL,
+    NAN_REQ_ATTR_PUBLISH_SDEA_LEN,
+    NAN_REQ_ATTR_PUBLISH_SDEA
+
 } NAN_REQ_ATTRIBUTES;
 
 typedef enum {
-	NAN_REPLY_ATTR_STATUS_TYPE,
-	NAN_REPLY_ATTR_VALUE,
-	NAN_REPLY_ATTR_RESPONSE_TYPE,
-	NAN_REPLY_ATTR_PUBLISH_SUBSCRIBE_TYPE,
-	NAN_REPLY_ATTR_CAP_MAX_CONCURRENT_CLUSTER,
-	NAN_REPLY_ATTR_CAP_MAX_PUBLISHES,
-	NAN_REPLY_ATTR_CAP_MAX_SUBSCRIBES,
-	NAN_REPLY_ATTR_CAP_MAX_SERVICE_NAME_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_MATCH_FILTER_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_TOTAL_MATCH_FILTER_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_SERVICE_SPECIFIC_INFO_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_VSA_DATA_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_MESH_DATA_LEN,
-	NAN_REPLY_ATTR_CAP_MAX_NDI_INTERFACES,
-	NAN_REPLY_ATTR_CAP_MAX_NDP_SESSIONS,
-	NAN_REPLY_ATTR_CAP_MAX_APP_INFO_LEN,
+    NAN_REPLY_ATTR_STATUS_TYPE,
+    NAN_REPLY_ATTR_VALUE,
+    NAN_REPLY_ATTR_RESPONSE_TYPE,
+    NAN_REPLY_ATTR_PUBLISH_SUBSCRIBE_TYPE,
+    NAN_REPLY_ATTR_CAP_MAX_CONCURRENT_CLUSTER,
+    NAN_REPLY_ATTR_CAP_MAX_PUBLISHES,
+    NAN_REPLY_ATTR_CAP_MAX_SUBSCRIBES,
+    NAN_REPLY_ATTR_CAP_MAX_SERVICE_NAME_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_MATCH_FILTER_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_TOTAL_MATCH_FILTER_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_SERVICE_SPECIFIC_INFO_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_VSA_DATA_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_MESH_DATA_LEN,
+    NAN_REPLY_ATTR_CAP_MAX_NDI_INTERFACES,
+    NAN_REPLY_ATTR_CAP_MAX_NDP_SESSIONS,
+    NAN_REPLY_ATTR_CAP_MAX_APP_INFO_LEN,
 } NAN_RESP_ATTRIBUTES;
 
 typedef enum {
@@ -252,10 +259,11 @@ typedef enum {
     NAN_EVT_ATTR_FOLLOWUP_DW_OR_FAW,
     NAN_EVT_ATTR_FOLLOWUP_SERVICE_SPECIFIC_INFO_LEN,
     NAN_EVT_ATTR_FOLLOWUP_SERVICE_SPECIFIC_INFO,
-    NAN_EVT_ATTR_DISCOVERY_ENGINE_EVT_TYPE	,
+    NAN_EVT_ATTR_DISCOVERY_ENGINE_EVT_TYPE    ,
     NAN_EVT_ATTR_DISCOVERY_ENGINE_MAC_ADDR,
-    NAN_EVT_ATTR_DISCOVERY_ENGINE_CLUSTER
-
+    NAN_EVT_ATTR_DISCOVERY_ENGINE_CLUSTER,
+    NAN_EVT_ATTR_SDEA,
+    NAN_EVT_ATTR_SDEA_LEN
 } NAN_EVT_ATTRIBUTES;
 
 class NanCommand : public WifiCommand {
@@ -482,6 +490,12 @@ class NanCommand : public WifiCommand {
             case NAN_EVT_ATTR_MATCH_CLUSTER_ATTRIBUTE:
                 memcpy(ind.cluster_attribute, nl_itr.get_data(), ind.cluster_attribute_len);
                 break;
+            case NAN_EVT_ATTR_SDEA_LEN:
+                ind.sdea_service_specific_info_len = nl_itr.get_u16();
+                break;
+            case NAN_EVT_ATTR_SDEA:
+                memcpy(ind.sdea_service_specific_info, nl_itr.get_data(), ind.sdea_service_specific_info_len);
+                break;
             }
         }
 
@@ -565,9 +579,10 @@ class NanCommand : public WifiCommand {
 
     int processFollowupEvent(WifiEvent &event) {
         NanFollowupInd ind;
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         memset(&ind,0,sizeof(ind));
 
-        for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
+        for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
             case NAN_EVT_ATTR_FOLLOWUP_PUBLISH_SUBSCRIBE_ID:
                 ind.publish_subscribe_id = nl_itr.get_u16();
@@ -587,6 +602,12 @@ class NanCommand : public WifiCommand {
             case NAN_EVT_ATTR_FOLLOWUP_SERVICE_SPECIFIC_INFO:
                 memcpy(ind.service_specific_info, nl_itr.get_data(), ind.service_specific_info_len);
                 break;
+            case NAN_EVT_ATTR_SDEA_LEN:
+                ind.sdea_service_specific_info_len = nl_itr.get_u16();
+                break;
+            case NAN_EVT_ATTR_SDEA:
+                memcpy(ind.sdea_service_specific_info, nl_itr.get_data(), ind.sdea_service_specific_info_len);
+                break;
             default :
                 ALOGE("processNanDisabledEvent: unknown attribute(%d)", nl_itr.get_type());
                 return NL_SKIP;
@@ -602,8 +623,8 @@ class NanCommand : public WifiCommand {
     int processNanDisabledEvent(WifiEvent &event) {
         NanDisabledInd ind;
         memset(&ind,0,sizeof(ind));
-
-        for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
             case NAN_EVT_ATTR_DISABLED_REASON:
                 ind.reason = (NanStatusType)nl_itr.get_u32();
@@ -624,8 +645,8 @@ class NanCommand : public WifiCommand {
         NanDiscEngEventInd ind;
         memset(&ind,0,sizeof(ind));
         u8 *addr = NULL;
-
-        for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
             case NAN_EVT_ATTR_DISCOVERY_ENGINE_EVT_TYPE:
                 ind.event_type = (NanDiscEngEventType)nl_itr.get_u16();
@@ -767,6 +788,18 @@ public:
 
         CHECK_CONFIG_PUT_32_RETURN_FAIL(msg->config_5g_channel, msg->channel_5g_val,
                     NAN_REQ_ATTR_CHANNEL_5G_MHZ_VAL, request, result, "enable:Failed to put channel_5g_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_subscribe_sid_beacon, msg->subscribe_sid_beacon_val,
+                    NAN_REQ_ATTR_SUBSCRIBE_SID_BEACON_VAL, request, result, "enable:Failed to put subscribe_sid_beacon_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_dw.config_2dot4g_dw_band, msg->config_dw.dw_2dot4g_interval_val,
+                    NAN_REQ_ATTR_DW_2G4_INTERVAL, request, result, "enable:Failed to put dw_2dot4g_interval_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_dw.config_5g_dw_band, msg->config_dw.dw_5g_interval_val,
+                    NAN_REQ_ATTR_DW_5G_INTERVAL, request, result, "enable:Failed to put dw_5g_interval_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_disc_mac_addr_randomization, msg->disc_mac_addr_rand_interval_sec,
+                    NAN_REQ_ATTR_DISC_MAC_ADDR_RANDOM_INTERVAL, request, result, "enable:Failed to put disc_mac_addr_rand_interval_sec");
 
         request.attr_end(data);
 
@@ -910,6 +943,18 @@ public:
             }
         }
 
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_subscribe_sid_beacon, msg->subscribe_sid_beacon_val,
+                    NAN_REQ_ATTR_SUBSCRIBE_SID_BEACON_VAL, request, result, "config:Failed to put subscribe_sid_beacon_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_dw.config_2dot4g_dw_band, msg->config_dw.dw_2dot4g_interval_val,
+                    NAN_REQ_ATTR_DW_2G4_INTERVAL, request, result, "config:Failed to put dw_2dot4g_interval_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_dw.config_5g_dw_band, msg->config_dw.dw_5g_interval_val,
+                    NAN_REQ_ATTR_DW_5G_INTERVAL, request, result, "config:Failed to put dw_5g_interval_val");
+
+        CHECK_CONFIG_PUT_8_RETURN_FAIL(msg->config_disc_mac_addr_randomization, msg->disc_mac_addr_rand_interval_sec,
+                    NAN_REQ_ATTR_DISC_MAC_ADDR_RANDOM_INTERVAL, request, result, "config:Failed to put disc_mac_addr_rand_interval_sec");
+
         request.attr_end(data);
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
@@ -996,6 +1041,12 @@ public:
 
         CHECK_CONFIG_PUT_8_RETURN_FAIL(1, msg->recv_indication_cfg,
                 NAN_REQ_ATTR_PUBLISH_RECV_IND_CFG, request, result, "publish:Failed to put msg->recv_indication_cfg");
+
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA_LEN, request, result, "publish:Failed to put msg->sdea_service_specific_info_len");
+
+        CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "publish:Failed to put msg->sdea_service_specific_info");
 
         request.attr_end(data);
         result = requestResponse(request);
@@ -1116,6 +1167,13 @@ public:
         CHECK_CONFIG_PUT_8_RETURN_FAIL(1, msg->recv_indication_cfg,
                 NAN_REQ_ATTR_SUBSCRIBE_RECV_IND_CFG, request, result, "subscribe:Failed to put msg->recv_indication_cfg");
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA_LEN, request, result, "subscribe:Failed to put msg->sdea_service_specific_info_len");
+
+        CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "subscribe:Failed to put msg->sdea_service_specific_info");
+
+
         request.attr_end(data);
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
@@ -1189,6 +1247,12 @@ public:
 
         CHECK_CONFIG_PUT_8_RETURN_FAIL(1, msg->recv_indication_cfg,
             NAN_REQ_ATTR_FOLLOWUP_RECV_IND_CFG, request, result, "followup:Failed to put msg->recv_indication_cfg");
+
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA_LEN, request, result, "publish:Failed to put msg->sdea_service_specific_info_len");
+
+        CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
+                NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "publish:Failed to put msg->sdea_service_specific_info");
 
         request.attr_end(data);
         result = requestResponse(request);
