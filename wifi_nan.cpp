@@ -183,8 +183,30 @@ typedef enum {
     NAN_REQ_ATTR_DW_5G_INTERVAL,
     NAN_REQ_ATTR_DISC_MAC_ADDR_RANDOM_INTERVAL,
     NAN_REQ_ATTR_PUBLISH_SDEA_LEN,
-    NAN_REQ_ATTR_PUBLISH_SDEA
+    NAN_REQ_ATTR_PUBLISH_SDEA,
 
+    NAN_REQ_ATTR_RANGING_AUTO_RESPONSE,
+    NAN_REQ_ATTR_SDEA_PARAM_NDP_TYPE,
+    NAN_REQ_ATTR_SDEA_PARAM_SECURITY_CFG,
+    NAN_REQ_ATTR_SDEA_PARAM_RANGING_STATE,
+    NAN_REQ_ATTR_SDEA_PARAM_RANGE_REPORT,
+    NAN_REQ_ATTR_SDEA_PARAM_QOS_CFG,
+    NAN_REQ_ATTR_RANGING_CFG_INTERVAL,
+    NAN_REQ_ATTR_RANGING_CFG_INDICATION,
+    NAN_REQ_ATTR_RANGING_CFG_INGRESS_MM,
+    NAN_REQ_ATTR_RANGING_CFG_EGRESS_MM,
+    NAN_REQ_ATTR_CIPHER_TYPE,
+    NAN_REQ_ATTR_SCID_LEN,
+    NAN_REQ_ATTR_SCID,
+    NAN_REQ_ATTR_SECURITY_KEY_TYPE,
+    NAN_REQ_ATTR_SECURITY_PMK_LEN,
+    NAN_REQ_ATTR_SECURITY_PMK,
+    NAN_REQ_ATTR_SECURITY_PASSPHRASE_LEN,
+    NAN_REQ_ATTR_SECURITY_PASSPHRASE,
+    NAN_REQ_ATTR_RANGE_RESPONSE_CFG_PUBLISH_ID,
+    NAN_REQ_ATTR_RANGE_RESPONSE_CFG_REQUESTOR_ID,
+    NAN_REQ_ATTR_RANGE_RESPONSE_CFG_PEER_ADDR,
+    NAN_REQ_ATTR_RANGE_RESPONSE_CFG_RANGING_RESPONSE
 } NAN_REQ_ATTRIBUTES;
 
 typedef enum {
@@ -263,7 +285,17 @@ typedef enum {
     NAN_EVT_ATTR_DISCOVERY_ENGINE_MAC_ADDR,
     NAN_EVT_ATTR_DISCOVERY_ENGINE_CLUSTER,
     NAN_EVT_ATTR_SDEA,
-    NAN_EVT_ATTR_SDEA_LEN
+    NAN_EVT_ATTR_SDEA_LEN,
+    NAN_EVT_ATTR_SCID,
+    NAN_EVT_ATTR_SCID_LEN,
+    NAN_EVT_ATTR_SDEA_PARAM_CONFIG_NAN_DATA_PATH,
+    NAN_EVT_ATTR_SDEA_PARAM_NDP_TYPE,
+    NAN_EVT_ATTR_SDEA_PARAM_SECURITY_CONFIG,
+    NAN_EVT_ATTR_SDEA_PARAM_RANGE_STATE,
+    NAN_EVT_ATTR_SDEA_PARAM_RANGE_REPORT,
+    NAN_EVT_ATTR_SDEA_PARAM_QOS_CFG,
+    NAN_EVT_ATTR_RANGE_MEASUREMENT_MM,
+    NAN_EVT_ATTR_RANGEING_EVENT_TYPE
 } NAN_EVT_ATTRIBUTES;
 
 class NanCommand : public WifiCommand {
@@ -496,6 +528,36 @@ class NanCommand : public WifiCommand {
             case NAN_EVT_ATTR_SDEA:
                 memcpy(ind.sdea_service_specific_info, nl_itr.get_data(), ind.sdea_service_specific_info_len);
                 break;
+            case NAN_EVT_ATTR_SCID_LEN:
+                ind.scid_len = nl_itr.get_u32();
+                break;
+            case NAN_EVT_ATTR_SCID:
+                memcpy(ind.scid, nl_itr.get_data(), ind.scid_len);
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_CONFIG_NAN_DATA_PATH:
+                ind.peer_sdea_params.config_nan_data_path = nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_NDP_TYPE:
+                ind.peer_sdea_params.ndp_type = (NdpType)nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_SECURITY_CONFIG:
+                ind.peer_sdea_params.security_cfg = (NanDataPathSecurityCfgStatus)nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_RANGE_STATE:
+                ind.peer_sdea_params.ranging_state = (NanRangingState)nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_RANGE_REPORT:
+                ind.peer_sdea_params.range_report = (NanRangeReport)nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_SDEA_PARAM_QOS_CFG:
+                ind.peer_sdea_params.qos_cfg = (NanQosCfgStatus)nl_itr.get_u8();
+                break;
+            case NAN_EVT_ATTR_RANGE_MEASUREMENT_MM:
+                ind.range_info.range_measurement_mm = nl_itr.get_u32();
+                break;
+            case NAN_EVT_ATTR_RANGEING_EVENT_TYPE:
+                ind.range_info.ranging_event_type = nl_itr.get_u32();
+                break;
             }
         }
 
@@ -672,6 +734,101 @@ class NanCommand : public WifiCommand {
             callbackEventHandler.EventDiscEngEvent(&ind);
 
         return NL_OK;
+    }
+
+    int putSdeaParams(NanSdeaCtrlParams *sdea_params, WifiRequest *request)
+    {
+        int result;
+
+        if (!sdea_params->config_nan_data_path)
+            return 0;
+
+        result = request->put_u8(NAN_REQ_ATTR_SDEA_PARAM_NDP_TYPE, sdea_params->ndp_type);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put SDEA PARAM ndp_type");
+
+        result = request->put_u8(NAN_REQ_ATTR_SDEA_PARAM_SECURITY_CFG, sdea_params->security_cfg);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put SDEA PARAM security_cfg");
+
+        result = request->put_u8(NAN_REQ_ATTR_SDEA_PARAM_RANGING_STATE, sdea_params->ranging_state);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put SDEA PARAM ranging_state");
+
+        result = request->put_u8(NAN_REQ_ATTR_SDEA_PARAM_RANGE_REPORT, sdea_params->range_report);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put SDEA PARAM range_report");
+
+        result = request->put_u8(NAN_REQ_ATTR_SDEA_PARAM_QOS_CFG, sdea_params->qos_cfg);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put SDEA PARAM qos_cfg");
+
+        return result;
+    }
+
+    int putRangingCfg(NanRangingCfg *ranging_cfg, WifiRequest *request)
+    {
+        int result;
+
+        result = request->put_u32(NAN_REQ_ATTR_RANGING_CFG_INTERVAL, ranging_cfg->ranging_interval_msec);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put Ranging CFG ranging_interval_msec");
+
+        result = request->put_u32(NAN_REQ_ATTR_RANGING_CFG_INDICATION, ranging_cfg->config_ranging_indications);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put Ranging CFG config_ranging_indications");
+
+        result = request->put_u32(NAN_REQ_ATTR_RANGING_CFG_INGRESS_MM, ranging_cfg->distance_ingress_mm);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put Ranging CFG distance_ingress_mm");
+
+        result = request->put_u32(NAN_REQ_ATTR_RANGING_CFG_EGRESS_MM, ranging_cfg->distance_egress_mm);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put Ranging CFG distance_egress_mm");
+
+        return result;
+    }
+
+    int putRangeResponseCfg(NanRangeResponseCfg *range_resp_cfg, WifiRequest *request)
+    {
+        int result;
+
+        result = request->put_u16(NAN_REQ_ATTR_RANGE_RESPONSE_CFG_PUBLISH_ID, range_resp_cfg->publish_id);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put range response cfg::publish_id");
+
+        result = request->put_u32(NAN_REQ_ATTR_RANGE_RESPONSE_CFG_REQUESTOR_ID, range_resp_cfg->requestor_instance_id);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put range response cfg::requestor_instance_id");
+
+        result = request->put_addr(NAN_REQ_ATTR_RANGE_RESPONSE_CFG_PEER_ADDR, range_resp_cfg->peer_addr);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put range response cfg::peer_addr");
+
+        result = request->put_u16(NAN_REQ_ATTR_RANGE_RESPONSE_CFG_RANGING_RESPONSE, range_resp_cfg->ranging_response);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put range response cfg::ranging_response");
+
+        return result;
+    }
+
+    int putSecurityInfo(u32 cipher, NanSecurityKeyInfo *key_info, u32 scid_len, u8 *scid, WifiRequest *request)
+    {
+        int result;
+
+        result = request->put_u32(NAN_REQ_ATTR_CIPHER_TYPE, cipher);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put cipher_type");
+
+        result = request->put_u32(NAN_REQ_ATTR_SECURITY_KEY_TYPE, key_info->key_type);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put cipher_type");
+
+        if (key_info->key_type == NAN_SECURITY_KEY_INPUT_PMK) {
+            result = request->put_u32(NAN_REQ_ATTR_SECURITY_PMK_LEN, key_info->body.pmk_info.pmk_len);
+            CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put key_info->body.pmk_info.pmk_len");
+            result = request->put(NAN_REQ_ATTR_SECURITY_PMK, key_info->body.pmk_info.pmk, key_info->body.pmk_info.pmk_len);
+            CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put key_info->body.pmk_info.pmk");
+        } else {
+            result = request->put_u32(NAN_REQ_ATTR_SECURITY_PASSPHRASE_LEN, key_info->body.passphrase_info.passphrase_len);
+            CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put key_info->body.passphrase_info.passphrase_len");
+            result = request->put(NAN_REQ_ATTR_SECURITY_PASSPHRASE, key_info->body.passphrase_info.passphrase,
+                                key_info->body.passphrase_info.passphrase_len);
+            CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put key_info->body.passphrase_info.passphrase");
+        }
+
+        result = request->put_u32(NAN_REQ_ATTR_SCID_LEN, scid_len);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put scid_len");
+        if (scid_len) {
+            result = request->put(NAN_REQ_ATTR_SCID, scid, scid_len);
+            CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put scid");
+        }
+        return result;
     }
 
 public:
@@ -1048,6 +1205,22 @@ public:
         CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
                 NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "publish:Failed to put msg->sdea_service_specific_info");
 
+        result = request.put_u8(NAN_REQ_ATTR_RANGING_AUTO_RESPONSE, msg->ranging_auto_response);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put ranging_auto_response");
+
+        result = putSdeaParams(&msg->sdea_params, &request);
+        if (result != 0)
+            return result;
+        result = putRangingCfg(&msg->ranging_cfg, &request);
+        if (result != 0)
+            return result;
+        result = putSecurityInfo(msg->cipher_type, &msg->key_info, msg->scid_len, msg->scid, &request);
+        if (result != 0)
+            return result;
+        result = putRangeResponseCfg(&msg->range_response_cfg, &request);
+        if (result != 0)
+            return result;
+
         request.attr_end(data);
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
@@ -1173,6 +1346,21 @@ public:
         CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
                 NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "subscribe:Failed to put msg->sdea_service_specific_info");
 
+        result = request.put_u8(NAN_REQ_ATTR_RANGING_AUTO_RESPONSE, msg->ranging_auto_response);
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put ranging_auto_response");
+
+        result = putSdeaParams(&msg->sdea_params, &request);
+        if (result != 0)
+            return result;
+        result = putRangingCfg(&msg->ranging_cfg, &request);
+        if (result != 0)
+            return result;
+        result = putSecurityInfo(msg->cipher_type, &msg->key_info, msg->scid_len, msg->scid, &request);
+        if (result != 0)
+            return result;
+        result = putRangeResponseCfg(&msg->range_response_cfg, &request);
+        if (result != 0)
+            return result;
 
         request.attr_end(data);
         result = requestResponse(request);
