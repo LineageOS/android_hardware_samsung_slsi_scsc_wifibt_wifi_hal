@@ -30,7 +30,8 @@ LOCAL_SRC_FILES := \
 	wifi_offload.cpp \
 	roam.cpp \
 	wifi_logger.cpp \
-	wifi_nan.cpp
+	wifi_nan.cpp \
+	wifi_nan_data_path.cpp
 
 LOCAL_MODULE := libwifi-hal-slsi
 LOCAL_VENDOR_MODULE := true
