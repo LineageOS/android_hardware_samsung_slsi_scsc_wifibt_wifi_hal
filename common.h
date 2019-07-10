@@ -193,7 +193,6 @@ typedef enum {
     WIFI_RSSI_REPORT_EVENT,
     ENHANCE_LOGGER_RING_EVENT,
     ENHANCE_LOGGER_MEM_DUMP_EVENT,
-    /* NAN events start */
     SLSI_NAN_EVENT_RESPONSE,
     SLSI_NAN_EVENT_PUBLISH_TERMINATED,
     SLSI_NAN_EVENT_MATCH,
@@ -202,10 +201,12 @@ typedef enum {
     SLSI_NAN_EVENT_FOLLOWUP,
     SLSI_NAN_EVENT_DISCOVERY_ENGINE,
     SLSI_NAN_EVENT_DISABLED,
-    /* NAN events end */
     SLSI_RTT_RESULT_EVENT,
     SLSI_RTT_EVENT_COMPLETE,
-    WIFI_ACS_EVENT            /* Handled by supplicant. not in Wifi-HAL */
+    WIFI_ACS_EVENT,            /* Handled by supplicant. not in Wifi-HAL */
+    SLSI_NL80211_VENDOR_FORWARD_BEACON,
+    SLSI_NL80211_VENDOR_FORWARD_BEACON_ABORT,
+    SLSI_NAN_EVENT_TRANSMIT_FOLLOWUP_STATUS
 
 } WIFI_EVENT;
 
@@ -257,6 +258,7 @@ typedef struct {
     interface_info **interfaces;                    // array of interfaces
     int num_interfaces;                             // number of interfaces
 
+    WifiCommand *nanCmd;
 
     // add other details
 } hal_info;
@@ -281,7 +283,9 @@ hal_info *getHalInfo(wifi_interface_handle handle);
 wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
 
-
+void wifi_set_nan_cmd(wifi_handle handle, WifiCommand *cmd);
+void wifi_reset_nan_cmd(wifi_handle handle);
+WifiCommand *wifi_get_nan_cmd(wifi_handle handle);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

@@ -242,3 +242,20 @@ wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface)
 
     return WIFI_ERROR_INVALID_ARGS;
 }
+
+void wifi_set_nan_cmd(wifi_handle handle, WifiCommand *cmd)
+{
+	hal_info *info = (hal_info *)handle;
+	info->nanCmd = cmd;
+}
+
+void wifi_reset_nan_cmd(wifi_handle handle)
+{
+	hal_info *info = (hal_info *)handle;
+	info->nanCmd = NULL;
+}
+
+WifiCommand *wifi_get_nan_cmd(wifi_handle handle) {
+	hal_info *info = (hal_info *)handle;
+	return info->nanCmd;
+}
