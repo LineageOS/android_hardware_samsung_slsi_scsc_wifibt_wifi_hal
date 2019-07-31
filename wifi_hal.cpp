@@ -40,6 +40,7 @@
 #define FEATURE_SET_MATRIX           1
 #define ATTR_NODFS_VALUE             3
 #define ATTR_COUNTRY_CODE            4
+#define ATTR_LOW_LATENCY_MODE        5
 
 static int internal_no_seq_check(nl_msg *msg, void *arg);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
@@ -408,6 +409,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;
     fn->wifi_set_packet_filter = wifi_set_packet_filter;
     fn->wifi_read_packet_filter = wifi_read_packet_filter;
+    fn->wifi_set_latency_mode = wifi_set_latency_mode;
 
     return WIFI_SUCCESS;
 }
@@ -1059,7 +1061,33 @@ protected:
 
 };
 
+class SetLatencyLockCommand : public WifiCommand {
+private:
+    wifi_latency_mode mMode;
+public:
+    SetLatencyLockCommand(wifi_interface_handle handle, wifi_latency_mode mode)
+        : WifiCommand(handle, 0) {
+        mMode = mode;
+    }
+    virtual int create() {
+        int ret;
 
+        ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_SET_LATENCY_MODE);
+        if (ret < 0) {
+             ALOGE("Can't create message to send to driver - %d", ret);
+             return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u8(ATTR_LOW_LATENCY_MODE, mMode);
+        if (ret < 0) {
+            return ret;
+        }
+
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
 
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
@@ -1218,6 +1246,9 @@ wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *count
     return (wifi_error) command.requestResponse();
 }
 
-
+wifi_error wifi_set_latency_mode(wifi_interface_handle handle, wifi_latency_mode mode) {
+    SetLatencyLockCommand cmd(handle, mode);
+    return (wifi_error) cmd.requestResponse();
+}
 /////////////////////////////////////////////////////////////////////////////
 
