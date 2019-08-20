@@ -90,10 +90,10 @@ class AndroidPktFilterCommand : public WifiCommand {
         const u8* mProgram;
         u32 mProgramLen;
         u32* mVersion;
-        u32* mMaxLen;
+        u32* mMaxLen = 0;
         u32 mSourceOffset;
         u8 *mHostDestination;
-        u32 mLength;
+        u32 mLength = 0;
         int mReqType;
     public:
         AndroidPktFilterCommand(wifi_interface_handle handle,
@@ -139,23 +139,24 @@ class AndroidPktFilterCommand : public WifiCommand {
 
     int createSetPktFilterRequest(WifiRequest& request) {
         u8 *program = new u8[mProgramLen];
+        nlattr *data = NULL;
         NULL_CHECK_RETURN(program, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_APF_SET_FILTER);
-        if (result < 0) {
-            return result;
-        }
+        if (result < 0)
+            goto exit;
 
-        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
         result = request.put_u32(APF_ATTRIBUTE_PROGRAM_LEN, mProgramLen);
-        if (result < 0) {
-            return result;
-        }
+        if (result < 0)
+            goto exit;
+
         memcpy(program, mProgram, mProgramLen);
         result = request.put(APF_ATTRIBUTE_PROGRAM, program, mProgramLen);
-        if (result < 0) {
-            return result;
-        }
+        if (result < 0)
+            goto exit;
         request.attr_end(data);
+
+exit:
         delete[] program;
         return result;
     }
