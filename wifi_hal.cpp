@@ -87,14 +87,14 @@ void wifi_socket_set_local_port(struct nl_sock *sock, uint32_t port)
 
 class AndroidPktFilterCommand : public WifiCommand {
     private:
-        const u8* mProgram;
-        u32 mProgramLen;
-        u32* mVersion;
+        const u8* mProgram = NULL;
+        u32 mProgramLen = 0;
+        u32* mVersion = NULL;
         u32* mMaxLen = 0;
-        u32 mSourceOffset;
-        u8 *mHostDestination;
+        u32 mSourceOffset = 0;
+        u8 *mHostDestination = NULL;
         u32 mLength = 0;
-        int mReqType;
+        int mReqType = 0;
     public:
         AndroidPktFilterCommand(wifi_interface_handle handle,
                 u32* version, u32* max_len)
