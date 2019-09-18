@@ -405,6 +405,11 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_nan_register_handler = nan_register_handler;
     fn->wifi_nan_get_version = nan_get_version;
     fn->wifi_nan_get_capabilities = nan_get_capabilities;
+    fn->wifi_nan_data_interface_create = nan_data_interface_create;
+    fn->wifi_nan_data_interface_delete = nan_data_interface_delete;
+    fn->wifi_nan_data_request_initiator = nan_data_request_initiator;
+    fn->wifi_nan_data_indication_response = nan_data_indication_response;
+    fn->wifi_nan_data_end = nan_data_end;
     fn->wifi_get_roaming_capabilities = wifi_get_roaming_capabilities;
     fn->wifi_enable_firmware_roaming = wifi_enable_firmware_roaming;
     fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;

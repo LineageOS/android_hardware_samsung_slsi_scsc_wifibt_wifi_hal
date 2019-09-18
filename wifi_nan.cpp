@@ -1376,15 +1376,15 @@ public:
         int result;
         WifiRequest request(familyId(), ifaceId());
 
-        ALOGI("NAN DATA-PATH req subcmd:%d", subcmd);
+        ALOGI("NAN DATA-PATH req subcmd:%d transaction_id:%d", subcmd, id);
 
-        result = datacmd.getDataPathNLMsg(data, subcmd, request);
+        result = datacmd.getDataPathNLMsg(id, data, subcmd, request);
         if (result != WIFI_SUCCESS) {
             return result;
         }
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            ALOGE("failed NDP req; result = %d", result);
+            ALOGE("failed DATA-PATH req; result = %d", result);
             unregisterNanEvents();
         } else {
             datacmd.requestSuccess(id, data, subcmd);
@@ -1540,7 +1540,7 @@ wifi_error nan_data_interface_create(transaction_id id,
     if (!nanRequest) {
         return WIFI_ERROR_OUT_OF_MEMORY;
     }
-    return (wifi_error)nanRequest->dataPathReq(id, iface,
+    return (wifi_error)nanRequest->dataPathReq(id, iface_name,
                 SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE);
 }
 
@@ -1551,7 +1551,7 @@ wifi_error nan_data_interface_delete(transaction_id id,
     if (!nanRequest) {
         return WIFI_ERROR_OUT_OF_MEMORY;
     }
-    return (wifi_error)nanRequest->dataPathReq(id, iface,
+    return (wifi_error)nanRequest->dataPathReq(id, iface_name,
                 SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE);
 
 }
@@ -1563,7 +1563,7 @@ wifi_error nan_data_request_initiator(transaction_id id,
     if (!nanRequest) {
         return WIFI_ERROR_OUT_OF_MEMORY;
     }
-    return (wifi_error)nanRequest->dataPathReq(id, iface,
+    return (wifi_error)nanRequest->dataPathReq(id, msg,
                 SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR);
 
 }
@@ -1575,7 +1575,7 @@ wifi_error nan_data_indication_response(transaction_id id,
     if (!nanRequest) {
         return WIFI_ERROR_OUT_OF_MEMORY;
     }
-    return (wifi_error)nanRequest->dataPathReq(id, iface,
+    return (wifi_error)nanRequest->dataPathReq(id, msg,
                 SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE);
 
 }
@@ -1587,7 +1587,7 @@ wifi_error nan_data_end(transaction_id id,
     if (!nanRequest) {
         return WIFI_ERROR_OUT_OF_MEMORY;
     }
-    return (wifi_error)nanRequest->dataPathReq(id, iface,
+    return (wifi_error)nanRequest->dataPathReq(id, msg,
                 SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END);
 
 }

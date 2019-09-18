@@ -43,7 +43,7 @@ public:
     NanDataCommand();
     int processResponse(WifiEvent &reply, NanResponseMsg *response);
     void requestSuccess(u16 id, void *data, int subcmd);
-    int getDataPathNLMsg(void *data, int subcmd, WifiRequest &request);
+    int getDataPathNLMsg(u16 id, void *data, int subcmd, WifiRequest &request);
     void setMaxNdpSessions(int max_ndp);
     int handleEvent(WifiEvent &event, NanCallbackHandler &callbackEventHandler);
     int getResponseTransactionId(NanResponseMsg *res);

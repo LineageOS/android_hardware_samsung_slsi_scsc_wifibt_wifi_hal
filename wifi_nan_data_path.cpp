@@ -302,16 +302,22 @@ NanDataCommand::NanDataCommand() {
     memset(transaction_id, 0, sizeof(transaction_id));
 }
 
-int NanDataCommand::getDataPathNLMsg(void *data, int subcmd, WifiRequest &request) {
+int NanDataCommand::getDataPathNLMsg(u16 id, void *data, int subcmd, WifiRequest &request) {
     switch (subcmd) {
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE:
+        transaction_id[idx_iface_create] = id;
+        return dataInterfaceCreateDelete((char *)data, subcmd, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE:
+        transaction_id[idx_iface_delete] = id;
         return dataInterfaceCreateDelete((char *)data, subcmd, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR:
+        transaction_id[idx_ndp_initiator] = id;
         return dataRequestInitiate((NanDataPathInitiatorRequest *)data, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE:
+        transaction_id[idx_ndp_responder] = id;
         return dataIndicationResponse((NanDataPathIndicationResponse *)data, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END:
+        transaction_id[idx_ndp_end] = id;
         return dataEnd((NanDataPathEndRequest *)data, request);
     default:
         ALOGE("unknown subcmd :%d", subcmd);
@@ -322,23 +328,18 @@ int NanDataCommand::getDataPathNLMsg(void *data, int subcmd, WifiRequest &reques
 void NanDataCommand::requestSuccess(u16 id, void *data, int subcmd) {
     switch (subcmd) {
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE:
-        transaction_id[idx_iface_create] = id;
         dataInterfaceCreated((char *)data);
         break;
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE:
-        transaction_id[idx_iface_delete] = id;
         dataInterfaceDeleted((char *)data);
         break;
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR:
-        transaction_id[idx_ndp_initiator] = id;
         dataRequestInitiateSuccess((NanDataPathInitiatorRequest *)data);
         break;
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE:
-        transaction_id[idx_ndp_responder] = id;
         dataIndicationResponseSuccess((NanDataPathIndicationResponse *)data);
         break;
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END:
-        transaction_id[idx_ndp_end] = id;
         dataEndSuccess((NanDataPathEndRequest *)data);
         break;
     }
