@@ -492,6 +492,8 @@ class NanCommand : public WifiCommand {
             case NAN_EVT_ATTR_DISCOVERY_ENGINE_MAC_ADDR:
                 addr = (u8 *)nl_itr.get_data();
                 break;
+            case NAN_EVT_ATTR_STATUS:
+                break;
             default :
                 ALOGE("processNanDiscoveryEvent: unknown attribute(%d)", nl_itr.get_type());
                 return NL_SKIP;
