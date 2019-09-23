@@ -298,6 +298,8 @@ NanDataCommand::NanDataCommand() {
     memset(m_ifaceName, 0, sizeof(m_ifaceName));
     m_ndp_count = 0;
     m_data_iface_count = 0;
+    m_max_ndp_sessions = 0;
+    memset(transaction_id, 0, sizeof(transaction_id));
 }
 
 int NanDataCommand::getDataPathNLMsg(void *data, int subcmd, WifiRequest &request) {
