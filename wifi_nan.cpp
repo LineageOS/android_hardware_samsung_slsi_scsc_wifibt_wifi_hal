@@ -1280,7 +1280,7 @@ public:
         int id = event.get_vendor_id();
         int subcmd = event.get_vendor_subcmd();
 
-        ALOGI("NAN %s Id = %0x, subcmd = %d", __func__, id, subcmd);
+        ALOGI("NAN %s Id = 0x%x, subcmd = 0x%x", __func__, id, subcmd);
 
         switch(subcmd) {
         case SLSI_NAN_EVENT_MATCH:
@@ -1378,7 +1378,7 @@ public:
         int result;
         WifiRequest request(familyId(), ifaceId());
 
-        ALOGI("NAN DATA-PATH req subcmd:%d transaction_id:%d", subcmd, id);
+        ALOGI("NAN DATA-PATH req subcmd:0x%x transaction_id:%d", subcmd, id);
 
         result = datacmd.getDataPathNLMsg(id, data, subcmd, request);
         if (result != WIFI_SUCCESS) {
@@ -1390,7 +1390,7 @@ public:
             unregisterNanEvents();
         } else {
             datacmd.requestSuccess(id, data, subcmd);
-            ALOGD("NAN DATA-PATH req(subcmd:%d)...success", subcmd);
+            ALOGD("NAN DATA-PATH req(subcmd:0x%x)...success", subcmd);
         }
         return result;
     }

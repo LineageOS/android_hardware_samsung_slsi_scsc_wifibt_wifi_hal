@@ -132,11 +132,11 @@ int NanDataCommand::dataEnd(NanDataPathEndRequest* msg, WifiRequest &request) {
     nlattr *data = newNlVendorMsg(SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END, request);
     if (!data)
         return WIFI_ERROR_UNKNOWN;
-
-    for(i=0; i<SLSI_NAN_MAX_NDP; i++) {
+    for(i=0; i<msg->num_ndp_instances; i++) {
         result = request.put_u32(NAN_REQ_ATTR_NDP_INSTANCE_ID, msg->ndp_instance_id[i]);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put ndp_instance_id");
     }
+
     request.attr_end(data);
     return result;
 }
@@ -320,7 +320,7 @@ int NanDataCommand::getDataPathNLMsg(u16 id, void *data, int subcmd, WifiRequest
         transaction_id[idx_ndp_end] = id;
         return dataEnd((NanDataPathEndRequest *)data, request);
     default:
-        ALOGE("unknown subcmd :%d", subcmd);
+        ALOGE("unknown subcmd :0x%x", subcmd);
     }
     return WIFI_ERROR_UNKNOWN;
 }
