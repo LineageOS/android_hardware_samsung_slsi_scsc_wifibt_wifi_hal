@@ -368,15 +368,18 @@ class NanCommand : public WifiCommand {
 
     int processPublishTerminatedEvent(WifiEvent &event) {
         NanPublishTerminatedInd ind;
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         memset(&ind,0,sizeof(ind));
 
-        for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
+        for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
             case NAN_EVT_ATTR_PUBLISH_ID:
                 ind.publish_id = nl_itr.get_u16();
                 break;
             case NAN_EVT_ATTR_PUBLISH_REASON:
                 ind.reason = (NanStatusType)nl_itr.get_u32();
+                break;
+            case NAN_EVT_ATTR_STATUS:
                 break;
             default :
                 ALOGE("processPublishTerminatedEvent: unknown attribute(%d)", nl_itr.get_type());
@@ -393,15 +396,18 @@ class NanCommand : public WifiCommand {
 
     int processSubscribeTerminatedEvent(WifiEvent &event) {
         NanSubscribeTerminatedInd ind;
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         memset(&ind,0,sizeof(ind));
 
-        for(nl_iterator nl_itr((struct nlattr *)event.get_vendor_data()); nl_itr.has_next(); nl_itr.next()) {
+        for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
             case NAN_EVT_ATTR_SUBSCRIBE_ID:
                 ind.subscribe_id = nl_itr.get_u16();
                 break;
             case NAN_EVT_ATTR_SUBSCRIBE_REASON:
                 ind.reason = (NanStatusType)nl_itr.get_u32();
+                break;
+            case NAN_EVT_ATTR_STATUS:
                 break;
             default :
                 ALOGE("processSubscribeTerminatedEvent: unknown attribute(%d)", nl_itr.get_type());
