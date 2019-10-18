@@ -72,6 +72,38 @@ class NanCommand : public WifiCommand {
         unregisterVendorHandler(GOOGLE_OUI, SLSI_NAN_EVENT_NDP_END);
     }
 
+    static const u8 *getEventName(int event) {
+        switch(event) {
+        case SLSI_NAN_EVENT_RESPONSE:
+            return (const u8 *)"SLSI_NAN_EVENT_RESPONSE";
+        case SLSI_NAN_EVENT_PUBLISH_TERMINATED:
+            return (const u8 *)"SLSI_NAN_EVENT_PUBLISH_TERMINATED";
+        case SLSI_NAN_EVENT_MATCH:
+            return (const u8 *)"SLSI_NAN_EVENT_MATCH";
+        case SLSI_NAN_EVENT_MATCH_EXPIRED:
+            return (const u8 *)"SLSI_NAN_EVENT_MATCH_EXPIRED";
+        case SLSI_NAN_EVENT_SUBSCRIBE_TERMINATED:
+            return (const u8 *)"SLSI_NAN_EVENT_SUBSCRIBE_TERMINATED";
+        case SLSI_NAN_EVENT_FOLLOWUP:
+            return (const u8 *)"SLSI_NAN_EVENT_FOLLOWUP";
+        case SLSI_NAN_EVENT_DISCOVERY_ENGINE:
+            return (const u8 *)"SLSI_NAN_EVENT_DISCOVERY_ENGINE";
+        case SLSI_NAN_EVENT_DISABLED:
+            return (const u8 *)"SLSI_NAN_EVENT_DISABLED";
+        case SLSI_NAN_EVENT_TRANSMIT_FOLLOWUP_STATUS:
+            return (const u8 *)"SLSI_NAN_EVENT_TRANSMIT_FOLLOWUP_STATUS";
+        case SLSI_NAN_EVENT_NDP_REQ:
+            return (const u8 *)"SLSI_NAN_EVENT_NDP_REQ";
+        case SLSI_NAN_EVENT_NDP_CFM:
+            return (const u8 *)"SLSI_NAN_EVENT_NDP_CFM";
+        case SLSI_NAN_EVENT_NDP_END:
+            return (const u8 *)"SLSI_NAN_EVENT_NDP_END";
+        default:
+            return (const u8 *)"UNKNOWN event";
+        }
+        return (const u8 *)"UNKNOWN event";
+    }
+
     int processResponse(WifiEvent &reply, NanResponseMsg *response) {
         NanCapabilities *capabilities = &response->body.nan_capabilities;
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
@@ -1286,7 +1318,7 @@ public:
         int id = event.get_vendor_id();
         int subcmd = event.get_vendor_subcmd();
 
-        ALOGI("NAN %s Id = 0x%x, subcmd = 0x%x", __func__, id, subcmd);
+        ALOGI("NAN %s Id = 0x%x, subcmd = %s(0x%x)", __func__, id, getEventName(subcmd), subcmd);
 
         switch(subcmd) {
         case SLSI_NAN_EVENT_MATCH:
@@ -1384,7 +1416,7 @@ public:
         int result;
         WifiRequest request(familyId(), ifaceId());
 
-        ALOGI("NAN DATA-PATH req subcmd:0x%x transaction_id:%d", subcmd, id);
+        ALOGI("NAN DATA-PATH req subcmd:%s(0x%x) transaction_id:%d", datacmd.getCmdName(subcmd), subcmd, id);
 
         result = datacmd.getDataPathNLMsg(id, data, subcmd, request);
         if (result != WIFI_SUCCESS) {
@@ -1392,11 +1424,11 @@ public:
         }
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            ALOGE("failed DATA-PATH req; result = %d", result);
+            ALOGE("NAN DATA-PATH req subcmd:%s(0x%x)...failed(%d)", datacmd.getCmdName(subcmd), subcmd, result);
             unregisterNanEvents();
         } else {
             datacmd.requestSuccess(id, data, subcmd);
-            ALOGD("NAN DATA-PATH req(subcmd:0x%x)...success", subcmd);
+            ALOGD("NAN DATA-PATH req subcmd:%s(0x%x)...success", datacmd.getCmdName(subcmd), subcmd);
         }
         return result;
     }

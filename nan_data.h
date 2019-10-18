@@ -49,5 +49,6 @@ public:
     int getResponseTransactionId(NanResponseMsg *res);
     static int putSecurityInfo(u32 cipher, NanSecurityKeyInfo *key_info, u32 scid_len,
                                u8 *scid, WifiRequest *request);
+    static const u8 *getCmdName(int cmd);
 };
 #endif

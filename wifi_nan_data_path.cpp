@@ -423,3 +423,21 @@ int NanDataCommand::putSecurityInfo(u32 cipher, NanSecurityKeyInfo *key_info, u3
     }
     return result;
 }
+
+const u8 *NanDataCommand::getCmdName(int cmd){
+    switch(cmd) {
+    case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE:
+        return (const u8 *)"SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE";
+    case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE:
+        return (const u8 *)"SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE";
+    case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR:
+        return (const u8 *)"SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR";
+    case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE:
+        return (const u8 *)"SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE";
+    case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END:
+        return (const u8 *)"SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END";
+    default:
+        return (const u8 *)"UNKNOWN CMD";
+    }
+    return (const u8 *)"UNKNOWN CMD";
+}
