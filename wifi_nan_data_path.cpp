@@ -41,7 +41,7 @@ nlattr *NanDataCommand::newNlVendorMsg(int subcmd, WifiRequest &request) {
     return data;
 }
 
-int NanDataCommand::dataInterfaceCreateDelete(char *ifaceName, int subcmd, WifiRequest &request) {
+int NanDataCommand::dataInterfaceCreateDelete(u16 id, char *ifaceName, int subcmd, WifiRequest &request) {
     int result;
     nlattr *data = newNlVendorMsg(subcmd, request);
     if (!data)
@@ -51,11 +51,13 @@ int NanDataCommand::dataInterfaceCreateDelete(char *ifaceName, int subcmd, WifiR
     CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put ifaceName_len");
     result = request.put(NAN_REQ_ATTR_DATA_INTERFACE_NAME, ifaceName, strlen(ifaceName));
     CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put ifaceName");
+    CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "dataInterfacecreateDelete:Failed to put transaction id");
+
     request.attr_end(data);
     return WIFI_SUCCESS;
 }
 
-int NanDataCommand::dataRequestInitiate(NanDataPathInitiatorRequest* msg, WifiRequest &request) {
+int NanDataCommand::dataRequestInitiate(u16 id, NanDataPathInitiatorRequest* msg, WifiRequest &request) {
     int result;
     nlattr *data = newNlVendorMsg(SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR, request);
     if (!data)
@@ -89,11 +91,13 @@ int NanDataCommand::dataRequestInitiate(NanDataPathInitiatorRequest* msg, WifiRe
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put req_instance_id");
     }
     result =  putSecurityInfo(msg->cipher_type, &msg->key_info, 0, NULL, &request);
+    CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "dataRequestInitiate:Failed to put transaction id");
+
     request.attr_end(data);
     return result;
 }
 
-int NanDataCommand::dataIndicationResponse(NanDataPathIndicationResponse* msg, WifiRequest &request) {
+int NanDataCommand::dataIndicationResponse(u16 id, NanDataPathIndicationResponse* msg, WifiRequest &request) {
     int result;
     nlattr *data = newNlVendorMsg(SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE, request);
     if (!data)
@@ -123,11 +127,13 @@ int NanDataCommand::dataIndicationResponse(NanDataPathIndicationResponse* msg, W
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put req_instance_id");
     }
     result =  putSecurityInfo(msg->cipher_type, &msg->key_info, 0, NULL, &request);
+    CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "dataIndicationResponse:Failed to put transaction id");
+
     request.attr_end(data);
     return result;
 }
 
-int NanDataCommand::dataEnd(NanDataPathEndRequest* msg, WifiRequest &request) {
+int NanDataCommand::dataEnd(u16 id, NanDataPathEndRequest* msg, WifiRequest &request) {
     int result, i;
     nlattr *data = newNlVendorMsg(SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END, request);
     if (!data)
@@ -136,6 +142,7 @@ int NanDataCommand::dataEnd(NanDataPathEndRequest* msg, WifiRequest &request) {
         result = request.put_u32(NAN_REQ_ATTR_NDP_INSTANCE_ID, msg->ndp_instance_id[i]);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "Failed to put ndp_instance_id");
     }
+    CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "dataEnd:Failed to put transaction id");
 
     request.attr_end(data);
     return result;
@@ -299,26 +306,20 @@ NanDataCommand::NanDataCommand() {
     m_ndp_count = 0;
     m_data_iface_count = 0;
     m_max_ndp_sessions = 0;
-    memset(transaction_id, 0, sizeof(transaction_id));
 }
 
 int NanDataCommand::getDataPathNLMsg(u16 id, void *data, int subcmd, WifiRequest &request) {
     switch (subcmd) {
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_CREATE:
-        transaction_id[idx_iface_create] = id;
-        return dataInterfaceCreateDelete((char *)data, subcmd, request);
+        return dataInterfaceCreateDelete(id, (char *)data, subcmd, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INTERFACE_DELETE:
-        transaction_id[idx_iface_delete] = id;
-        return dataInterfaceCreateDelete((char *)data, subcmd, request);
+        return dataInterfaceCreateDelete(id, (char *)data, subcmd, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_REQUEST_INITIATOR:
-        transaction_id[idx_ndp_initiator] = id;
-        return dataRequestInitiate((NanDataPathInitiatorRequest *)data, request);
+        return dataRequestInitiate(id, (NanDataPathInitiatorRequest *)data, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_INDICATION_RESPONSE:
-        transaction_id[idx_ndp_responder] = id;
-        return dataIndicationResponse((NanDataPathIndicationResponse *)data, request);
+        return dataIndicationResponse(id, (NanDataPathIndicationResponse *)data, request);
     case SLSI_NL80211_VENDOR_SUBCMD_NAN_DATA_END:
-        transaction_id[idx_ndp_end] = id;
-        return dataEnd((NanDataPathEndRequest *)data, request);
+        return dataEnd(id, (NanDataPathEndRequest *)data, request);
     default:
         ALOGE("unknown subcmd :0x%x", subcmd);
     }
@@ -357,35 +358,6 @@ int NanDataCommand::handleEvent(WifiEvent &event, NanCallbackHandler &callbackEv
     default:
         return NL_OK;
     }
-}
-
-int NanDataCommand::getResponseTransactionId(NanResponseMsg *res) {
-    u16 id;
-    switch(res->response_type) {
-    case NAN_DP_INTERFACE_CREATE:
-        id = transaction_id[idx_iface_create];
-        transaction_id[idx_iface_create] = 0;
-        break;
-    case NAN_DP_INTERFACE_DELETE:
-        id = transaction_id[idx_iface_delete];
-        transaction_id[idx_iface_delete] = 0;
-        break;
-    case NAN_DP_INITIATOR_RESPONSE:
-        id = transaction_id[idx_ndp_initiator];
-        transaction_id[idx_ndp_initiator] = 0;
-        break;
-    case NAN_DP_RESPONDER_RESPONSE:
-        id = transaction_id[idx_ndp_responder];
-        transaction_id[idx_ndp_responder] = 0;
-        break;
-    case NAN_DP_END:
-        id = transaction_id[idx_ndp_end];
-        transaction_id[idx_ndp_end] = 0;
-        break;
-    default:
-        id = 0;
-    }
-    return id;
 }
 
 void NanDataCommand::setMaxNdpSessions(int max_ndp) {
@@ -441,3 +413,4 @@ const u8 *NanDataCommand::getCmdName(int cmd){
     }
     return (const u8 *)"UNKNOWN CMD";
 }
+

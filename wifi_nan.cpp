@@ -33,15 +33,6 @@ class NanCommand : public WifiCommand {
     int subscribeID[2];
     int publishID[2];
     int followupID[2];
-    transaction_id followupTid;
-    transaction_id publishTid;
-    transaction_id publishCancelTid;
-    transaction_id subscribeTid;
-    transaction_id subscribeCancelTid;
-    transaction_id enableTid;
-    transaction_id disableTid;
-    transaction_id configTid;
-    transaction_id capabilitiesTid;
     int version;
     NanCapabilities capabilities;
     NanDataCommand  datacmd;
@@ -108,6 +99,7 @@ class NanCommand : public WifiCommand {
         NanCapabilities *capabilities = &response->body.nan_capabilities;
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         unsigned int val;
+        transaction_id id = 0;
 
         for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             switch(nl_itr.get_type()) {
@@ -190,13 +182,16 @@ class NanCommand : public WifiCommand {
             case NAN_REPLY_ATTR_CAP_NDPE_ATTR_SUPPORTED:
                 capabilities->ndpe_attr_supported = nl_itr.get_u32();
                 break;
+            case NAN_REPLY_ATTR_HAL_TRANSACTION_ID:
+                id = nl_itr.get_u16();
+                break;
             default :
                 ALOGE("received unknown type(%d) in response", nl_itr.get_type());
-                return NL_SKIP;
+                return -1;
             }
         }
         this->capabilities = *capabilities;
-        return NL_OK;
+        return id;
     }
 
     int processMatchEvent(WifiEvent &event) {
@@ -555,13 +550,13 @@ class NanCommand : public WifiCommand {
     int processNanFollowupStatus(WifiEvent &event) {
         NanTransmitFollowupInd ind;
         memset(&ind,0,sizeof(ind));
-        ind.id = followupTid;
-        followupTid = 0;
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         for(nl_iterator nl_itr(vendor_data); nl_itr.has_next(); nl_itr.next()) {
             if (nl_itr.get_type() == NAN_EVT_ATTR_STATUS) {
                 ind.reason = (NanStatusType)nl_itr.get_u16();
-            } else {
+            } else if(nl_itr.get_type() == NAN_EVT_ATTR_HAL_TRANSACTION_ID) {
+                ind.id = nl_itr.get_u16();
+            }else {
                 ALOGE("processNanFollowupStatus: unknown attribute(%d)", nl_itr.get_type());
                 return NL_SKIP;
             }
@@ -646,16 +641,6 @@ public:
         publishID[1] = 0;
         followupID[0] = 0;
         followupID[1] = 0;
-
-        followupTid = 0;
-        publishTid = 0;
-        publishCancelTid = 0;
-        subscribeTid = 0;
-        subscribeCancelTid = 0;
-        enableTid = 0;
-        disableTid = 0;
-        configTid = 0;
-        capabilitiesTid = 0;
 
         version = 0;
         memset(&capabilities, 0, sizeof(capabilities));
@@ -777,13 +762,13 @@ public:
         CHECK_CONFIG_PUT_32_RETURN_FAIL(msg->config_ndpe_attr, msg->use_ndpe_attr,
                     NAN_REQ_ATTR_USE_NDPE_ATTR, request, result, "enable:Failed to put use_ndpe_attr");
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "enable:Failed to put transaction id");
+
         request.attr_end(data);
 
         registerNanEvents();
-        enableTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            enableTid = 0;
             ALOGE("failed to NAN; result = %d", result);
             unregisterNanEvents();
         } else {
@@ -801,7 +786,14 @@ public:
 
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_DISABLE);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "disable:Failed to create WifiRequest");
-        disableTid = id;
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        if (!data) {
+            ALOGE("enable: request.attr_start fail");
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "disable:Failed to put transaction id");
+        request.attr_end(data);
         result = requestResponse(request);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "disable:Failed to requestResponse");
         return result;
@@ -934,13 +926,13 @@ public:
                     NAN_REQ_ATTR_DISC_MAC_ADDR_RANDOM_INTERVAL, request, result, "config:Failed to put disc_mac_addr_rand_interval_sec");
 
         CHECK_CONFIG_PUT_32_RETURN_FAIL(msg->config_ndpe_attr, msg->use_ndpe_attr,
-                    NAN_REQ_ATTR_USE_NDPE_ATTR, request, result, "enable:Failed to put use_ndpe_attr");
+                    NAN_REQ_ATTR_USE_NDPE_ATTR, request, result, "config:Failed to put use_ndpe_attr");
+
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "config:Failed to put transaction id");
 
         request.attr_end(data);
-        configTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            configTid = 0;
             ALOGE("failed to set_config; result = %d", result);
         } else {
             ALOGD("NAN config...success");
@@ -1032,7 +1024,7 @@ public:
                 NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "publish:Failed to put msg->sdea_service_specific_info");
 
         result = request.put_u8(NAN_REQ_ATTR_RANGING_AUTO_RESPONSE, msg->ranging_auto_response);
-        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put ranging_auto_response");
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "publish:Failed to put ranging_auto_response");
 
         result = putSdeaParams(&msg->sdea_params, &request);
         if (result != 0)
@@ -1047,11 +1039,11 @@ public:
         if (result != 0)
             return result;
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "publish:Failed to put transaction id");
+
         request.attr_end(data);
-        publishTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            publishTid = 0;
             ALOGE("failed to publish; result = %d", result);
         } else {
             ALOGD("NAN publish...success");
@@ -1075,11 +1067,11 @@ public:
         CHECK_CONFIG_PUT_16_RETURN_FAIL(1, msg->publish_id,
                 NAN_REQ_ATTR_PUBLISH_ID, request, result, "publishCancel:Failed to put msg->publish_id");
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "publishCancel:Failed to put transaction id");
+
         request.attr_end(data);
-        publishCancelTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            publishCancelTid = 0;
             ALOGE("failed to publishCancel; result = %d", result);
         } else {
             ALOGD("NAN publishCancel...success");
@@ -1177,7 +1169,7 @@ public:
                 NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "subscribe:Failed to put msg->sdea_service_specific_info");
 
         result = request.put_u8(NAN_REQ_ATTR_RANGING_AUTO_RESPONSE, msg->ranging_auto_response);
-        CHECK_WIFI_STATUS_RETURN_FAIL(result, "enable:Failed to put ranging_auto_response");
+        CHECK_WIFI_STATUS_RETURN_FAIL(result, "subscribe:Failed to put ranging_auto_response");
 
         result = putSdeaParams(&msg->sdea_params, &request);
         if (result != 0)
@@ -1192,11 +1184,11 @@ public:
         if (result != 0)
             return result;
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "subscribe:Failed to put transaction id");
+
         request.attr_end(data);
-        subscribeTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            subscribeTid = 0;
             ALOGE("failed to subscribe; result = %d", result);
         } else {
             ALOGD("NAN subscribe...success");
@@ -1221,11 +1213,11 @@ public:
         CHECK_CONFIG_PUT_16_RETURN_FAIL(1, msg->subscribe_id,
                 NAN_REQ_ATTR_SUBSCRIBE_ID, request, result, "subscribeCancel:Failed to put msg->subscribe_id");
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "subscribeCancel:Failed to put transaction id");
+
         request.attr_end(data);
-        subscribeCancelTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            subscribeCancelTid = 0;
             ALOGE("failed to subscribeCancel; result = %d", result);
         } else {
             ALOGD("NAN subscribeCancel...success");
@@ -1276,11 +1268,11 @@ public:
         CHECK_CONFIG_PUT_RETURN_FAIL(msg->sdea_service_specific_info_len, msg->sdea_service_specific_info, msg->sdea_service_specific_info_len,
                 NAN_REQ_ATTR_PUBLISH_SDEA, request, result, "publish:Failed to put msg->sdea_service_specific_info");
 
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "followup:Failed to put transaction id");
+
         request.attr_end(data);
-        followupTid = id;
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            followupTid = 0;
             ALOGE("failed to followup; result = %d", result);
         } else {
             ALOGD("NAN followup...success");
@@ -1296,10 +1288,15 @@ public:
         int result = request.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_NAN_CAPABILITIES);
         CHECK_WIFI_STATUS_RETURN_FAIL(result, "getCapabilities:Failed to create WifiRequest");
 
-        capabilitiesTid = id;
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        if (!data) {
+            ALOGE("enable: request.attr_start fail");
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        CHECK_CONFIG_PUT_16_RETURN_FAIL(1, id, NAN_REQ_ATTR_HAL_TRANSACTION_ID, request, result, "getCapabilities:Failed to put transaction id");
+        request.attr_end(data);
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            capabilitiesTid = 0;
             ALOGE("failed to getCapabilities; result = %d", result);
         } else {
             ALOGD("NAN getCapabilities...success");
@@ -1361,51 +1358,10 @@ public:
         NanResponseMsg response;
         memset(&response, 0, sizeof(response));
 
-        if (processResponse(reply, &response) == NL_SKIP)
+        transaction_id id = processResponse(reply, &response);
+        if ( id < 0)
             return NL_SKIP;
 
-        transaction_id id = 0;
-        switch ((int)response.response_type) {
-        case NAN_RESPONSE_PUBLISH:
-            id = publishTid;
-            publishTid = 0;
-            break;
-        case NAN_RESPONSE_ENABLED:
-            id = enableTid;
-            enableTid = 0;
-            break;
-        case NAN_RESPONSE_DISABLED:
-            id = disableTid;
-            disableTid = 0;
-            break;
-        case NAN_RESPONSE_PUBLISH_CANCEL:
-            id = publishCancelTid;
-            publishCancelTid = 0;
-            break;
-        case NAN_RESPONSE_SUBSCRIBE_CANCEL:
-            id = subscribeCancelTid;
-            subscribeCancelTid = 0;
-            break;
-        case NAN_RESPONSE_CONFIG:
-            id = configTid;
-            configTid = 0;
-            break;
-        case NAN_GET_CAPABILITIES:
-            id = capabilitiesTid;
-            capabilitiesTid = 0;
-            break;
-        case NAN_RESPONSE_SUBSCRIBE:
-            id = subscribeTid;
-            subscribeTid = 0;
-            break;
-        case NAN_RESPONSE_TRANSMIT_FOLLOWUP:
-            id = followupTid;
-            /* followupTid is required on receiving followup_up transmit status.
-             * Do not reset followupTid here*/
-            break;
-        default:
-            id = datacmd.getResponseTransactionId(&response);
-        }
         ALOGD("NAN %s transId:%d status:%d, response:%d", __func__, id, response.status, response.response_type);
         if (callbackEventHandler.NotifyResponse)
             callbackEventHandler.NotifyResponse(id, &response);
