@@ -4,7 +4,7 @@
 #
 #############################################################################
 
-ifeq ($(CONFIG_SAMSUNG_SCSC_WIFIBT),true)
+ifeq ($(BOARD_WLAN_DEVICE),slsi)
 
 LOCAL_PATH := $(call my-dir)
 
