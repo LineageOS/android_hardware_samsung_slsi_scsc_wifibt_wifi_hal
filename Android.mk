@@ -14,6 +14,8 @@ include $(CLEAR_VARS)
 
 LOCAL_CFLAGS := -Wno-unused-parameter
 
+LOCAL_HEADER_LIBRARIES := liblog_headers
+
 LOCAL_C_INCLUDES += \
         system/core/include/ \
 	external/libnl/include \
