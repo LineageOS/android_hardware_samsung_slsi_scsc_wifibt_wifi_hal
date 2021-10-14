@@ -200,12 +200,21 @@ protected:
         }
         int id = reply.get_vendor_id();
         u8 *data = (u8 *)reply.get_vendor_data();
+        int len = reply.get_vendor_data_len();
+        if (!data || !len) {
+            ALOGE("Invalid vendor data received!");
+            return NL_SKIP;
+        }
         int num_radios = 0, i = 0;
         num_radios = data[0];
         data += sizeof(data[0]);
 
-        // assuming max peers is 16
-        wifi_iface_stat *iface_stat = (wifi_iface_stat *) malloc(sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * 16);
+        int num_peers = ((wifi_iface_stat *)data)->num_peers;
+        int iface_stat_data_size = sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * num_peers;
+        int iface_stat_data_peer_size = 0;
+        for (int i = 0; i < num_peers; i++) iface_stat_data_peer_size += sizeof(wifi_rate_stat) * ((wifi_iface_stat *)data)->peer_info[i].num_rate;
+
+        wifi_iface_stat *iface_stat = (wifi_iface_stat *) malloc(iface_stat_data_size + iface_stat_data_peer_size);
         if (!iface_stat) {
             ALOGE("Memory alloc failed for iface_stat in response handler!!!");
             return NL_SKIP;
@@ -213,8 +222,6 @@ protected:
 
         // max channel is 39 (14 2.4GHz and 25 5GHz)
         wifi_radio_stat *radio_stat = (wifi_radio_stat *) malloc((num_radios * sizeof(wifi_radio_stat)) + sizeof(wifi_channel_stat) * 39);
-        wifi_radio_stat *radio_stat2;
-        radio_stat2 = radio_stat;
         if (!radio_stat) {
             ALOGE("Memory alloc failed for radio_stat in response handler!!!");
             free(iface_stat);
@@ -229,10 +236,10 @@ protected:
         radio_data_len1 = (u8 *)&(radio_stat->num_tx_levels) - (u8*)radio_stat;
         radio_data_len2 = (u8 *)(radio_stat->channels) - (u8*)&(radio_stat->rx_time);
 
-        //kernel is 64 bit. if userspace is 64 bit, typecastting buffer works else, make corrections
+        //kernel is 64 bit. if userspace is 64 bit, typecasting buffer works, else make corrections
         if (sizeof(iface_stat->iface) == 8) {
-            memcpy(iface_stat, data, sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers);
-            data += sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers;
+            memcpy(iface_stat, data, iface_stat_data_size);
+            data += iface_stat_data_size;
         } else {
             /* for 64 bit kernel ad 32 bit user space, there is 4 byte extra at the begining and another 4 byte pad after 80 bytes
              * so remove first 4 and 81-84 bytes from NL buffer.*/
@@ -244,6 +251,8 @@ protected:
             memcpy(iface_stat->peer_info, data, sizeof(wifi_peer_info) * iface_stat->num_peers);
             data += sizeof(wifi_peer_info) * iface_stat->num_peers;
         }
+
+        wifi_radio_stat *radio_stat2 = radio_stat;
         for (i = 0; i < num_radios; i++) {
             memcpy(radio_stat2, data, radio_data_len1);
             data += radio_data_len1;
@@ -256,8 +265,10 @@ protected:
             radio_stat2=(wifi_radio_stat *) ((u8 *)radio_stat2+ sizeof(wifi_radio_stat) +
                         (sizeof(wifi_channel_stat) * radio_stat2->num_channels ));
         }
+
         iface_stat->iface = iface;
         (*mHandler.on_link_stats_results)(id, iface_stat, num_radios, radio_stat);
+        
         free(iface_stat);
         free(radio_stat);
         return NL_OK;
