@@ -589,6 +589,8 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
             if (num_cmd == info->num_cmd) {
                 bad_commands++;
             }
+        } else {
+            bad_commands++;
         }
     }
 
