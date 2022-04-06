@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "dea063f4_ef26f84b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 17401
+      },
+      "writtenOn": "2022-04-06T06:55:51Z",
+      "side": 1,
+      "message": "wifi hal still crashes, now with a SEGV_ACCERR",
+      "revId": "25aa0c12986e6260ac6d03b3452f10949c6b9d96",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
