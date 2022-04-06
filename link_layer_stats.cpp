@@ -258,7 +258,6 @@ protected:
         }
         iface_stat->iface = iface;
         (*mHandler.on_link_stats_results)(id, iface_stat, num_radios, radio_stat);
-        free(iface_stat);
         free(radio_stat);
         return NL_OK;
     }
