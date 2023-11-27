@@ -1,0 +1,30 @@
+// Copyright (c) 2012 - 2013 Samsung Electronics Co., Ltd
+
+cc_library_static {
+    name: "libwifi-hal-slsi",
+    vendor_available: true,
+    compile_multilib: "both",
+    srcs: [
+        "wifi_hal.cpp",
+        "rtt.cpp",
+        "common.cpp",
+        "cpp_bindings.cpp",
+        "gscan.cpp",
+        "link_layer_stats.cpp",
+        "wifi_offload.cpp",
+        "roam.cpp",
+        "wifi_logger.cpp",
+        "wifi_nan.cpp",
+        "wifi_nan_data_path.cpp",
+    ],
+
+    include_dirs: [
+        "system/core/include",
+        "external/libnl/include",
+        "hardware/libhardware_legacy/include/hardware_legacy",
+        "external/wpa_supplicant_8/src/drivers",
+    ],
+
+    cflags: ["-Wno-unused-parameter"],
+    header_libs: ["liblog_headers"],
+}
