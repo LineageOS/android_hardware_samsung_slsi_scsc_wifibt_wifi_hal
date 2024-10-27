@@ -21,6 +21,7 @@ cc_library_static {
     include_dirs: [
         "system/core/include",
         "external/libnl/include",
+        "hardware/interfaces/wifi/legacy_headers/include/hardware_legacy",
         "hardware/libhardware_legacy/include/hardware_legacy",
         "external/wpa_supplicant_8/src/drivers",
     ],
