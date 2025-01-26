@@ -588,6 +588,38 @@ out:
     nl_cb_put(cb);
     return err;
 }
+int WifiCommand::linuxSetIfaceFlags(char *ifname, int flag) {
+    struct ifreq ifr;
+    int ret = 0;
+
+    memset(&ifr, 0, sizeof(ifr));
+    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+
+    ret = ioctl(mInfo->ioctl_sock, SIOCGIFFLAGS, &ifr);
+    if (ret)
+        return ret;
+
+    if (flag) {
+        if (ifr.ifr_flags & IFF_UP) {
+            ALOGE("interface %s is already up\n", ifname);
+            return 0;
+        }
+        ifr.ifr_flags |= IFF_UP;
+    } else {
+        if (!(ifr.ifr_flags & IFF_UP)) {
+            ALOGE("interface %s is already down\n", ifname);
+            return 0;
+        }
+        ifr.ifr_flags &= ~IFF_UP;
+    }
+    if (ioctl(mInfo->ioctl_sock, SIOCSIFFLAGS, &ifr) != 0) {
+        ALOGE("Could not set interface %s flags \n", ifname);
+        return ret;
+    } else {
+        ALOGE("set interface %s flags (%s)\n", ifname, flag ? "UP" : "DOWN");
+    }
+    return 0;
+}
 
 int WifiCommand::requestEvent(int cmd) {
 
@@ -689,6 +721,6 @@ int WifiCommand::error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, vo
     int *ret = (int *)arg;
     *ret = err->error;
 
-    /*ALOGD("error_handler received : %d", err->error);*/
+    /*ALOGD("error_handler received : %d %s", err->error, nl_geterror(err->error));*/
     return NL_SKIP;
 }

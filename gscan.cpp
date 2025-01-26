@@ -18,14 +18,14 @@
 
 #include "sync.h"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
 
 typedef enum {
-    EPNO_ATTRIBUTE_MINIMUM_5G_RSSI,
+    EPNO_ATTRIBUTE_MINIMUM_5G_RSSI = WIFI_HAL_ATTR_START,
     EPNO_ATTRIBUTE_MINIMUM_2G_RSSI,
     EPNO_ATTRIBUTE_INITIAL_SCORE_MAX,
     EPNO_ATTRIBUTE_CUR_CONN_BONUS,
@@ -42,7 +42,7 @@ typedef enum {
 } EPNO_ATTRIBUTE;
 
 typedef enum {
-    EPNO_ATTRIBUTE_HS_PARAM_LIST,
+    EPNO_ATTRIBUTE_HS_PARAM_LIST = WIFI_HAL_ATTR_START,
     EPNO_ATTRIBUTE_HS_NUM,
     EPNO_ATTRIBUTE_HS_ID,
     EPNO_ATTRIBUTE_HS_REALM,

@@ -17,7 +17,7 @@
 
 #include "sync.h"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
@@ -206,6 +206,8 @@ protected:
 
         // assuming max peers is 16
         wifi_iface_stat *iface_stat = (wifi_iface_stat *) malloc(sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * 16);
+        wifi_iface_stat *iface_stat2;
+        iface_stat2 = iface_stat;
         if (!iface_stat) {
             ALOGE("Memory alloc failed for iface_stat in response handler!!!");
             return NL_SKIP;
@@ -229,10 +231,24 @@ protected:
         radio_data_len1 = (u8 *)&(radio_stat->num_tx_levels) - (u8*)radio_stat;
         radio_data_len2 = (u8 *)(radio_stat->channels) - (u8*)&(radio_stat->rx_time);
 
+        int iface_data_len1;
+        iface_data_len1 = (u8 *)&(iface_stat->peer_info) - (u8*)iface_stat;
+
         //kernel is 64 bit. if userspace is 64 bit, typecastting buffer works else, make corrections
         if (sizeof(iface_stat->iface) == 8) {
-            memcpy(iface_stat, data, sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers);
-            data += sizeof(wifi_iface_stat) + sizeof(wifi_peer_info) * ((wifi_iface_stat *)data)->num_peers;
+            memcpy(iface_stat2, data, iface_data_len1);
+            data += iface_data_len1;
+
+            for (i = 0; i < iface_stat2->num_peers; i++) {
+                memcpy(&iface_stat2->peer_info[i].type, data, sizeof(wifi_peer_type));
+                data += sizeof(wifi_peer_type);
+                memcpy(iface_stat2->peer_info[i].peer_mac_address, data, (sizeof(u8) * 6));
+                data += (sizeof(u8) * 6) + 2; //for allignment skip 2 bytes
+                memcpy(&iface_stat2->peer_info[i].capabilities, data, sizeof(u32));
+                data += sizeof(u32);
+                memcpy(&iface_stat2->peer_info[i].num_rate, data, sizeof(u32));
+                data += sizeof(u32);
+            }
         } else {
             /* for 64 bit kernel ad 32 bit user space, there is 4 byte extra at the begining and another 4 byte pad after 80 bytes
              * so remove first 4 and 81-84 bytes from NL buffer.*/
@@ -241,9 +257,18 @@ protected:
             data += 80 + 4; //for allignment skip 4 bytes
             memcpy(((u8 *)iface_stat) + 80, data, sizeof(wifi_iface_stat) - 80);
             data += sizeof(wifi_iface_stat) - 80;
-            memcpy(iface_stat->peer_info, data, sizeof(wifi_peer_info) * iface_stat->num_peers);
-            data += sizeof(wifi_peer_info) * iface_stat->num_peers;
+            for (i = 0; i < iface_stat->num_peers; i++) {
+                memcpy(&iface_stat->peer_info[i].type, data, sizeof(wifi_peer_type));
+                data += sizeof(wifi_peer_type);
+                memcpy(iface_stat->peer_info[i].peer_mac_address, data, (sizeof(u8) * 6));
+                data += (sizeof(u8) * 6) + 2; //for allignment skip 2 bytes
+                memcpy(&iface_stat->peer_info[i].capabilities, data, sizeof(u32));
+                data += sizeof(u32);
+                memcpy(&iface_stat->peer_info[i].num_rate, data, sizeof(u32));
+                data += sizeof(u32);
+            }
         }
+
         for (i = 0; i < num_radios; i++) {
             memcpy(radio_stat2, data, radio_data_len1);
             data += radio_data_len1;

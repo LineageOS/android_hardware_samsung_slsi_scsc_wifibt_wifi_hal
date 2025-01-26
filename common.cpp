@@ -20,6 +20,8 @@
 #include "common.h"
 #include "cpp_bindings.h"
 
+static uint8_t reset_in_progress;
+
 interface_info *getIfaceInfo(wifi_interface_handle handle)
 {
     return (interface_info *)handle;
@@ -222,7 +224,7 @@ void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd)
         if (info->cmd[i].cmd == cmd) {
             memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
             info->num_cmd--;
-            //ALOGI("Successfully removed command %d: %p from %d", id, cmd, i);
+            //ALOGI("Successfully removed command : %p from %d", cmd, i);
             break;
         }
     }
@@ -258,4 +260,100 @@ void wifi_reset_nan_cmd(wifi_handle handle)
 WifiCommand *wifi_get_nan_cmd(wifi_handle handle) {
 	hal_info *info = (hal_info *)handle;
 	return info->nanCmd;
+}
+
+void wifi_log_hex2string(const u8 *hex_buffer, int length, char *hex_string)
+{
+    int slen = 0, i = 0;
+    int max_size = WIFI_MAX_INFO_BUFFER_SIZE;
+
+    for (i = 0; i < length && slen < max_size - 2; i++)
+        slen += snprintf(&hex_string[slen], WIFI_MAX_INFO_BUFFER_SIZE - slen, "%02x", hex_buffer[i]);
+    hex_string[slen] = '\0';
+}
+
+void wifi_log_hex_buffer_debug(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len)
+{
+    char hex_string[WIFI_MAX_INFO_BUFFER_SIZE] = {'0'};
+    int len = hex_len > 20 ? 20 : hex_len; /* only first 20bytes needs to be printed. */
+
+    if (!len || !hex_buffer)
+        return;
+    wifi_log_hex2string(hex_buffer, len, hex_string);
+    if (pre_str && post_str)
+        ALOGD("%s %s %s\n", pre_str, hex_string, post_str);
+    else if (pre_str)
+        ALOGD("%s %s\n", pre_str, hex_string);
+    else if (post_str)
+        ALOGD("%s %s\n", hex_string, post_str);
+    else
+        ALOGD("%s\n", hex_string);
+    return;
+}
+
+void wifi_log_hex_buffer_warn(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len)
+{
+    char hex_string[WIFI_MAX_INFO_BUFFER_SIZE] = {'0'};
+    int len = hex_len > 20 ? 20 : hex_len; /* only first 20bytes needs to be printed. */
+
+    if (!len || !hex_buffer)
+        return;
+    wifi_log_hex2string(hex_buffer, len, hex_string);
+    if (pre_str && post_str)
+        ALOGW("%s %s %s\n", pre_str, hex_string, post_str);
+    else if (pre_str)
+        ALOGW("%s %s\n", pre_str, hex_string);
+    else if (post_str)
+        ALOGW("%s %s\n", hex_string, post_str);
+    else
+        ALOGW("%s\n", hex_string);
+    return;
+}
+
+void wifi_log_hex_buffer_info(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len)
+{
+    char hex_string[WIFI_MAX_INFO_BUFFER_SIZE] = {'0'};
+    int len = hex_len > 20 ? 20 : hex_len; /* only first 20bytes needs to be printed. */
+
+    if (!len || !hex_buffer)
+        return;
+    wifi_log_hex2string(hex_buffer, len, hex_string);
+    if (pre_str && post_str)
+        ALOGI("%s %s %s\n", pre_str, hex_string, post_str);
+    else if (pre_str)
+        ALOGI("%s %s\n", pre_str, hex_string);
+    else if (post_str)
+        ALOGI("%s %s\n", hex_string, post_str);
+    else
+        ALOGI("%s\n", hex_string);
+    return;
+}
+
+void wifi_log_hex_buffer_error(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len)
+{
+    char hex_string[WIFI_MAX_INFO_BUFFER_SIZE] = {'0'};
+    int len = hex_len > 20 ? 20 : hex_len; /* only first 20bytes needs to be printed. */
+
+    if (!len || !hex_buffer)
+        return;
+    wifi_log_hex2string(hex_buffer, len, hex_string);
+    if (pre_str && post_str)
+        ALOGE("%s %s %s\n", pre_str, hex_string, post_str);
+    else if (pre_str)
+        ALOGE("%s %s\n", pre_str, hex_string);
+    else if (post_str)
+        ALOGE("%s %s\n", hex_string, post_str);
+    else
+        ALOGE("%s\n", hex_string);
+    return;
+}
+
+void set_reset_in_progress(uint8_t value)
+{
+    reset_in_progress = value;
+}
+
+uint8_t is_reset_in_progress()
+{
+    return reset_in_progress;
 }

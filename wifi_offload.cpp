@@ -20,19 +20,20 @@
 
 #define LOG_TAG  "WifiHAL[offload]"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
 
 typedef enum {
-    MKEEP_ALIVE_ATTRIBUTE_ID,
+    MKEEP_ALIVE_ATTRIBUTE_ID = WIFI_HAL_ATTR_START,
     MKEEP_ALIVE_ATTRIBUTE_IP_PKT,
     MKEEP_ALIVE_ATTRIBUTE_IP_PKT_LEN,
     MKEEP_ALIVE_ATTRIBUTE_SRC_MAC_ADDR,
     MKEEP_ALIVE_ATTRIBUTE_DST_MAC_ADDR,
-    MKEEP_ALIVE_ATTRIBUTE_PERIOD_MSEC
+    MKEEP_ALIVE_ATTRIBUTE_PERIOD_MSEC,
+    MKEEP_ALIVE_ATTRIBUTE_MAX
 } WIFI_MKEEP_ALIVE_ATTRIBUTE;
 
 typedef enum {

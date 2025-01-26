@@ -106,7 +106,13 @@ public:
         return pos;
     }
     uint16_t get_type() {
-        return pos->nla_type;
+        uint16_t type;
+#ifdef SLSI_WIFI_HAL_NL_ATTR_CONFIG
+        type = pos->nla_type & NLA_TYPE_MASK;
+#else
+        type = pos->nla_type;
+#endif
+        return type;
     }
     uint8_t get_u8() {
         return nla_get_u8(pos);
@@ -274,6 +280,7 @@ public:
     int requestEvent(int cmd);
     int requestVendorEvent(uint32_t id, int subcmd);
     int requestResponse(WifiRequest& request);
+    int linuxSetIfaceFlags(char *ifname, int flag);
 
 protected:
     wifi_handle wifiHandle() {

@@ -1,3 +1,20 @@
+/*
+ *  Copyright 2019 Samsung Electronics Co. Ltd
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+
+ *  http://www.apache.org/licenses/LICENSE-2.0
+
+ *  Unless required by applicable law or agreed to in writing, software
+
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
 #include <stdint.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -19,7 +36,7 @@
 
 #include "sync.h"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
@@ -27,7 +44,7 @@
 using namespace std;
 
 typedef enum {
-    SLSI_RTT_ATTRIBUTE_TARGET_CNT = 0,
+    SLSI_RTT_ATTRIBUTE_TARGET_CNT = WIFI_HAL_ATTR_START,
     SLSI_RTT_ATTRIBUTE_TARGET_INFO,
     SLSI_RTT_ATTRIBUTE_TARGET_MAC,
     SLSI_RTT_ATTRIBUTE_TARGET_TYPE,
@@ -47,7 +64,8 @@ typedef enum {
     SLSI_RTT_ATTRIBUTE_RESULTS_PER_TARGET,
     SLSI_RTT_ATTRIBUTE_RESULT_CNT,
     SLSI_RTT_ATTRIBUTE_RESULT,
-    SLSI_RTT_ATTRIBUTE_TARGET_ID
+    SLSI_RTT_ATTRIBUTE_TARGET_ID,
+    SLSI_RTT_ATTRIBUTE_MAX
 } SLSI_RTT_ATTRIBUTE;
 
 enum slsi_rtt_event_attributes {
@@ -129,7 +147,7 @@ static const strmap_entry_t err_info[] = {
 }*/
 class RttCommand : public WifiCommand
 {
-    int rtt_id;
+    int request_id;
     unsigned numTargetDevice;
     int mCompleted;
     int currentIdx;
@@ -141,7 +159,7 @@ class RttCommand : public WifiCommand
 public:
     RttCommand(wifi_interface_handle iface, int id, unsigned num_rtt_config,
             wifi_rtt_config rtt_config[], wifi_rtt_event_handler handler)
-        : WifiCommand(iface, id), rtt_id(id), numTargetDevice(num_rtt_config), rttParams(rtt_config),
+        : WifiCommand(iface, id), request_id(id), numTargetDevice(num_rtt_config), rttParams(rtt_config),
         rttHandler(handler)
     {
         memset(rttResults, 0, sizeof(rttResults));
@@ -151,7 +169,7 @@ public:
     }
 
     RttCommand(wifi_interface_handle iface, int id)
-        : WifiCommand(iface, id), rtt_id(id), rttParams(NULL)
+        : WifiCommand(iface, id), request_id(id), rttParams(NULL)
     {
         rttHandler.on_rtt_results = NULL;
         memset(rttResults, 0, sizeof(rttResults));
@@ -166,7 +184,7 @@ public:
             return result;
         }
         nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-	result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_ID, rtt_id);
+	result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_ID, request_id);
         if (result < 0) {
             return result;
         }
@@ -185,13 +203,13 @@ public:
                 return result;
             }
 
-            result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_TYPE, rttParams[i].type);
+            result = request.put_u8(SLSI_RTT_ATTRIBUTE_TARGET_TYPE, rttParams[i].type);
 			ALOGI("\trtt_type %d\n",rttParams[i].type);
             if (result < 0) {
                 return result;
             }
 
-	     result = request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_PEER, rttParams[i].peer);
+	     result = request.put_u8(SLSI_RTT_ATTRIBUTE_TARGET_PEER, rttParams[i].peer);
 			ALOGI("\trtt_peer %d\n",rttParams[i].peer);
             if (result < 0) {
                 return result;
@@ -283,7 +301,6 @@ public:
             return result;
         }
         nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-	 request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_ID, rtt_id);
         request.put_u16(SLSI_RTT_ATTRIBUTE_TARGET_CNT, num_devices);
         for(unsigned i = 0; i < num_devices; i++) {
             result = request.put_addr(SLSI_RTT_ATTRIBUTE_TARGET_MAC, addr[i]);
@@ -358,27 +375,23 @@ public:
     }
 
     virtual int handleEvent(WifiEvent& event) {
-        currentIdx=0;
         nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int event_id = event.get_vendor_subcmd();
         ALOGD("Got an RTT event with id:%d\n",event_id);
         if(event_id == SLSI_RTT_EVENT_COMPLETE) {
              ALOGD("RTT event complete\n");
-             unregisterVendorHandler(GOOGLE_OUI, SLSI_RTT_RESULT_EVENT);
-             WifiCommand *cmd = wifi_unregister_cmd(wifiHandle(), id());
-              if (cmd)
-                  cmd->releaseRef();
+             mCompleted = 1;
+             request_id = (u16)event.get_u16(NL80211_ATTR_VENDOR_DATA);
         } else if (event_id == SLSI_RTT_RESULT_EVENT) {
              int result_cnt = 0;
-             int rtt_id = 0;
              ALOGD("RTT result event\n");
              for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
                     if (it.get_type() == SLSI_RTT_ATTRIBUTE_RESULT_CNT) {
                               result_cnt = it.get_u16();
                               ALOGD("RTT results count : %d\n", result_cnt);
                      }  else if (it.get_type() == SLSI_RTT_ATTRIBUTE_TARGET_ID) {
-                              rtt_id = it.get_u16();
-                              ALOGD("RTT target id : %d\n", rtt_id);
+                              request_id = it.get_u16();
+                              ALOGD("RTT target id : %d\n", request_id);
                      } else if (it.get_type() == SLSI_RTT_ATTRIBUTE_RESULT) {
                               ALOGD("RTT result attribute : %d\n", SLSI_RTT_ATTRIBUTE_RESULT);
                               rttResults[currentIdx] =  (wifi_rtt_result *)malloc(sizeof(wifi_rtt_result));
@@ -388,11 +401,14 @@ public:
                                          unregisterVendorHandler(GOOGLE_OUI, SLSI_RTT_RESULT_EVENT);
                                          break;
                                 }
+                               memset(rtt_result, 0, sizeof(wifi_rtt_result));
+                               rtt_result->LCI = NULL;
+                               rtt_result->LCR = NULL;
                                for(nl_iterator nl_nested_itr((struct nlattr *)it.get()); nl_nested_itr.has_next(); nl_nested_itr.next()) {
                                   if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_ADDR) {
                                          memcpy(rtt_result->addr, nl_nested_itr.get_data(), nl_nested_itr.get_len());
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_BURST_NUM) {
-                                         rtt_result->burst_num = (unsigned)nl_nested_itr.get_u8();
+                                         rtt_result->burst_num = (unsigned)nl_nested_itr.get_u16();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_MEASUREMENT_NUM) {
                                          rtt_result->measurement_number = (unsigned)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_SUCCESS_NUM) {
@@ -404,11 +420,11 @@ public:
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_RETRY_AFTER_DURATION) {
                                          rtt_result->retry_after_duration = (unsigned char)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_TYPE) {
-                                         rtt_result->type = (wifi_rtt_type)nl_nested_itr.get_u16();
+                                         rtt_result->type = (wifi_rtt_type)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_RSSI) {
-                                         rtt_result->rssi = (wifi_rssi)nl_nested_itr.get_u16();
+                                         rtt_result->rssi = (wifi_rssi)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_RSSI_SPREAD) {
-                                         rtt_result->rssi_spread= (wifi_rssi)nl_nested_itr.get_u16();
+                                         rtt_result->rssi_spread= (wifi_rssi)nl_nested_itr.get_u8();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_TX_PREAMBLE) {
                                          rtt_result->tx_rate.preamble = nl_nested_itr.get_u32();
                                   } else if (nl_nested_itr.get_type() == SLSI_RTT_EVENT_ATTR_TX_NSS) {
@@ -464,15 +480,24 @@ public:
                            currentIdx++;
                        }
                }
-             (*rttHandler.on_rtt_results)(id() ,currentIdx, rttResults);
-              for (int i = 0; i < currentIdx; i++) {
-                     free(rttResults[i]);
-                     rttResults[i] = NULL;
-              }
-              currentIdx = 0;
        }
-        ALOGE("Handled response for rtt config");
-        return NL_SKIP;
+       if (mCompleted) {
+             unregisterVendorHandler(GOOGLE_OUI, SLSI_RTT_EVENT_COMPLETE);
+             unregisterVendorHandler(GOOGLE_OUI, SLSI_RTT_RESULT_EVENT);
+             (*rttHandler.on_rtt_results)(request_id ,currentIdx, rttResults);
+             for (int i = 0; i < currentIdx; i++) {
+                    free(rttResults[i]);
+                    rttResults[i] = NULL;
+             }
+             currentIdx = 0;
+             WifiCommand *cmd = wifi_unregister_cmd(wifiHandle(), request_id);
+             if (cmd)
+                   cmd->releaseRef();
+		mCompleted = 0;
+             return NL_OK;
+       }
+       ALOGE("Handled response for rtt config");
+       return NL_SKIP;
     }
 };
 class GetRttCapabilitiesCommand : public WifiCommand
@@ -560,7 +585,7 @@ protected:
 wifi_error wifi_rtt_range_request(wifi_request_id id, wifi_interface_handle iface,
         unsigned num_rtt_config, wifi_rtt_config rtt_config[], wifi_rtt_event_handler handler)
 {
-    ALOGE("Inside RTT RANGE range request");
+    ALOGE("Inside RTT RANGE request");
     wifi_handle handle = getWifiHandle(iface);
     RttCommand *cmd = new RttCommand(iface, id, num_rtt_config, rtt_config, handler);
     NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
@@ -571,9 +596,10 @@ wifi_error wifi_rtt_range_request(wifi_request_id id, wifi_interface_handle ifac
     }
     result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
+        (*handler.on_rtt_results)(id, 0, NULL);
         wifi_unregister_cmd(handle, id);
         cmd->releaseRef();
-        return result;
+        return WIFI_SUCCESS;
     }
 	ALOGE("wifi range request successfully executed");
     return result;

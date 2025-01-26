@@ -1,3 +1,20 @@
+/*
+ *  Copyright 2019 Samsung Electronics Co. Ltd
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+
+ *  http://www.apache.org/licenses/LICENSE-2.0
+
+ *  Unless required by applicable law or agreed to in writing, software
+
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -26,7 +43,7 @@
 
 #define LOG_TAG  "WifiHAL"
 
-#include <utils/Log.h>
+#include <log/log.h>
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
@@ -39,8 +56,10 @@
 #define FEATURE_SET                  0
 #define FEATURE_SET_MATRIX           1
 #define ATTR_NODFS_VALUE             3
+#ifndef SLSI_WIFI_HAL_NL_ATTR_CONFIG
 #define ATTR_COUNTRY_CODE            4
 #define ATTR_LOW_LATENCY_MODE        5
+#endif
 
 static int internal_no_seq_check(nl_msg *msg, void *arg);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
@@ -49,21 +68,24 @@ static int wifi_add_membership(wifi_handle handle, const char *group);
 static wifi_error wifi_init_interfaces(wifi_handle handle);
 
 typedef enum wifi_attr {
-    ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG,
-    ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI
+    ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_CONFIG = WIFI_HAL_ATTR_START,
+    ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI,
+    ANDR_WIFI_ATTRIBUTE_GSCAN_OUI_MAX
 } wifi_attr_t;
 
 enum wifi_rssi_monitor_attr {
-    RSSI_MONITOR_ATTRIBUTE_MAX_RSSI,
+    RSSI_MONITOR_ATTRIBUTE_MAX_RSSI = WIFI_HAL_ATTR_START,
     RSSI_MONITOR_ATTRIBUTE_MIN_RSSI,
     RSSI_MONITOR_ATTRIBUTE_START,
+    RSSI_MONITOR_ATTRIBUTE_MAX
 };
 
 enum wifi_apf_attr {
     APF_ATTRIBUTE_VERSION,
     APF_ATTRIBUTE_MAX_LEN,
     APF_ATTRIBUTE_PROGRAM,
-    APF_ATTRIBUTE_PROGRAM_LEN
+    APF_ATTRIBUTE_PROGRAM_LEN,
+    APF_ATTRIBUTE_MAX
 };
 
 enum apf_request_type {
@@ -72,10 +94,46 @@ enum apf_request_type {
     READ_APF_PROGRAM
 };
 
+#ifdef SLSI_WIFI_HAL_NL_ATTR_CONFIG
+enum wifi_low_latency_attr {
+    ATTR_LOW_LATENCY_MODE = 1,
+    ATTR_LOW_LATENCY_MAX
+};
+
+enum country_code_attr {
+    ATTR_COUNTRY_CODE = 1,
+    ATTR_COUNTRY_CODE_MAX
+};
+#endif
+
+enum slsi_usable_channel_attr {
+    SLSI_UC_ATTRIBUTE_BAND = 1,
+    SLSI_UC_ATTRIBUTE_IFACE_MODE,
+    SLSI_UC_ATTRIBUTE_FILTER,
+    SLSI_UC_ATTRIBUTE_MAX_NUM,
+    SLSI_UC_ATTRIBUTE_NUM_CHANNELS,
+    SLSI_UC_ATTRIBUTE_CHANNEL_LIST,
+    SLSI_UC_ATTRIBUTE_MAX
+};
+
+enum slsi_uc_iface_mode {
+    SLSI_UC_ITERFACE_STA = 1 << 0,
+    SLSI_UC_ITERFACE_SOFTAP = 1 << 1,
+    SLSI_UC_ITERFACE_IBSS = 1 << 2,
+    SLSI_UC_ITERFACE_P2P_CLIENT = 1 << 3,
+    SLSI_UC_ITERFACE_P2P_GO = 1 << 4,
+    SLSI_UC_ITERFACE_P2P_NAN = 1 << 5,
+    SLSI_UC_ITERFACE_P2P_MESH = 1 << 6,
+    SLSI_UC_ITERFACE_P2P_TDLS = 1 << 7,
+    SLSI_UC_ITERFACE_UNKNOWN = -1,
+};
+
 static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
                         iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
 static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
 wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface, WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
+wifi_error wifi_get_usable_channels(wifi_handle handle, uint32_t band, uint32_t iface_mode, uint32_t filter,
+                                    uint32_t max_num, uint32_t *num_channels, wifi_usable_channel *channels);
 
 /* Initialize/Cleanup */
 
@@ -416,6 +474,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_set_packet_filter = wifi_set_packet_filter;
     fn->wifi_read_packet_filter = wifi_read_packet_filter;
     fn->wifi_set_latency_mode = wifi_set_latency_mode;
+    fn->wifi_set_subsystem_restart_handler = wifi_set_subsystem_restart_handler;
+    fn->wifi_get_usable_channels = wifi_get_usable_channels;
 
     return WIFI_SUCCESS;
 }
@@ -453,7 +513,11 @@ wifi_error wifi_initialize(wifi_handle *handle)
         free(info);
         return WIFI_ERROR_UNKNOWN;
     }
-
+    int ioctl_sock = socket(PF_INET, SOCK_DGRAM, 0);
+    if (ioctl_sock < 0) {
+        ALOGE("Bad socket: %d\n", ioctl_sock);
+        return WIFI_ERROR_UNKNOWN;
+    }
     struct nl_cb *cb = nl_socket_get_cb(event_sock);
     if (cb == NULL) {
         ALOGE("Could not create handle");
@@ -472,7 +536,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
     info->event_sock = event_sock;
     info->clean_up = false;
     info->in_event_loop = false;
-
+	info->ioctl_sock = ioctl_sock;
     info->event_cb = (cb_info *)malloc(sizeof(cb_info) * DEFAULT_EVENT_CB_SIZE);
     info->alloc_event_cb = DEFAULT_EVENT_CB_SIZE;
     info->num_event_cb = 0;
@@ -499,7 +563,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
     wifi_add_membership(*handle, "vendor");
 
     wifi_init_interfaces(*handle);
-    char intf_name_buff[10 * 10 + 4]; /* Randomly choosen max interface 10. each interface name max 9 + 1(for space) */
+    char intf_name_buff[10 * (IFNAMSIZ+1) + 4];
     char *pos = intf_name_buff;
     for (int i = 0; i < (info->num_interfaces < 10 ? info->num_interfaces : 10); i++) {
         strncpy(pos, info->interfaces[i]->name, sizeof(intf_name_buff) - (pos - intf_name_buff));
@@ -553,25 +617,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
 void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 {
     hal_info *info = getHalInfo(handle);
-    char buf[64];
 
     info->cleaned_up_handler = handler;
-    if (write(info->cleanup_socks[0], "Exit", 4) < 1) {
-        ALOGE("could not write to the cleanup socket");
-    } else {
-        // Listen to the response
-        // Hopefully we dont get errors or get hung up
-        // Not much can be done in that case, but assume that
-        // it has rx'ed the Exit message to exit the thread.
-        // As a fallback set the cleanup flag to TRUE
-        memset(buf, 0, sizeof(buf));
-        int result = read(info->cleanup_socks[0], buf, sizeof(buf));
-        ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result, errno);
-        if (strncmp(buf, "Done", 4) != 0) {
-            ALOGD("Rx'ed %s", buf);
-        }
-    }
-    info->clean_up = true;
     pthread_mutex_lock(&info->cb_lock);
 
     int bad_commands = 0;
@@ -598,7 +645,12 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
         ALOGE("Leaked command %p", cmd);
     }
     pthread_mutex_unlock(&info->cb_lock);
-    internal_cleaned_up_handler(handle);
+
+    info->clean_up = true;
+    if (TEMP_FAILURE_RETRY(write(info->cleanup_socks[0], "Exit", 4)) < 1) {
+        ALOGE("could not write to the cleanup socket");
+    }
+    ALOGD("%s: Exit has sent properly. wifi_cleanup done", __FUNCTION__);
 }
 
 static int internal_pollin_handler(wifi_handle handle)
@@ -632,13 +684,15 @@ void wifi_event_loop(wifi_handle handle)
 
     do {
         int timeout = -1;                   /* Infinite timeout */
+
         pfd[0].revents = 0;
         pfd[1].revents = 0;
-        int result = poll(pfd, 2, timeout);
+        int result = TEMP_FAILURE_RETRY(poll(pfd, 2, timeout));
         if (result < 0) {
+            ALOGE("wifi_event_loop: return %d, error no = %d", result, errno);
         } else if (pfd[0].revents & POLLERR) {
             int prev_err = (int)errno;
-            int result2 = read(pfd[0].fd, buf, sizeof(buf));
+            int result2 = TEMP_FAILURE_RETRY(read(pfd[0].fd, buf, sizeof(buf)));
             ALOGE("Poll err:%d | Read after POLL returned %d, error no = %d", prev_err, result2, errno);
         } else if (pfd[0].revents & POLLHUP) {
             ALOGE("Remote side hung up");
@@ -651,17 +705,16 @@ void wifi_event_loop(wifi_handle handle)
             ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result2, errno);
             if (strncmp(buf, "Exit", 4) == 0) {
                 ALOGD("Got a signal to exit!!!");
-                if (write(pfd[1].fd, "Done", 4) < 1) {
-                    ALOGE("could not write to the cleanup socket");
-                }
-                break;
             } else {
                 ALOGD("Rx'ed %s on the cleanup socket\n", buf);
             }
         } else {
-            ALOGE("Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
+            ALOGE("wifi_event_loop: Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
         }
     } while (!info->clean_up);
+
+    internal_cleaned_up_handler(handle);
+    ALOGD("wifi_event_loop: end of event loop !!!!!");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -1095,6 +1148,139 @@ public:
     }
 };
 
+class SetSubsystemRestartHandlerCommand : public WifiCommand {
+private:
+    wifi_subsystem_restart_handler mHandler;
+public:
+    SetSubsystemRestartHandlerCommand(int id, wifi_handle handle, wifi_subsystem_restart_handler handler)
+        : WifiCommand(handle, id), mHandler(handler)
+        {
+        }
+
+    int start() {
+        set_reset_in_progress(0);
+        ALOGI("Register Vendor Handler for WIFI_SUBSYSTEM_RESTART_EVENT");
+        registerVendorHandler(GOOGLE_OUI, WIFI_SUBSYSTEM_RESTART_EVENT);
+        return WIFI_SUCCESS;
+    }
+
+    virtual int cancel() {
+        set_reset_in_progress(0);
+        ALOGI("Unregister Vendor Handler for WIFI_SUBSYSTEM_RESTART_EVENT");
+        unregisterVendorHandler(GOOGLE_OUI, WIFI_SUBSYSTEM_RESTART_EVENT);
+        return WIFI_SUCCESS;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+
+   virtual int handleEvent(WifiEvent& event) {
+
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = event.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGI("Subsystem Restart Handler : No data");
+            return NL_SKIP;
+        }
+        const char* error = (const char*)event.get_vendor_data();
+
+        if (*mHandler.on_subsystem_restart) {
+            set_reset_in_progress(1);
+            (*mHandler.on_subsystem_restart)(error);
+        } else {
+            ALOGW("No Subsystem Restart handler registered");
+        }
+        return NL_SKIP;
+    }
+};
+
+class GetUsableChannelsCommand : public WifiCommand {
+    uint32_t mBand;
+    uint32_t mIfaceMode;
+    uint32_t mFilter;
+    uint32_t mMaxNum;
+    uint32_t *mNumChannels;
+    wifi_usable_channel *mChannels;
+public:
+    GetUsableChannelsCommand(wifi_interface_handle handle, uint32_t band, uint32_t iface_mode, uint32_t filter,
+                             uint32_t max_num, uint32_t *ch_num, wifi_usable_channel *channel_buf)
+        : WifiCommand(handle, 0), mBand(band), mIfaceMode(iface_mode), mFilter(filter),
+        mMaxNum(max_num), mNumChannels(ch_num), mChannels(channel_buf) {
+        memset(mChannels, 0, sizeof(wifi_usable_channel) * max_num);
+    }
+
+    virtual int create() {
+        int ret = mMsg.create(GOOGLE_OUI, SLSI_NL80211_VENDOR_SUBCMD_GET_USABLE_CHANNELS);
+        if (ret < 0) {
+            return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u32(SLSI_UC_ATTRIBUTE_BAND, mBand);
+        if (ret < 0) {
+            return ret;
+        }
+
+        ret = mMsg.put_u32(SLSI_UC_ATTRIBUTE_IFACE_MODE, mIfaceMode);
+        if (ret < 0) {
+            return ret;
+        }
+
+        ret = mMsg.put_u32(SLSI_UC_ATTRIBUTE_FILTER, mFilter);
+        if (ret < 0) {
+            return ret;
+        }
+
+        ret = mMsg.put_u32(SLSI_UC_ATTRIBUTE_MAX_NUM, mMaxNum);
+        if (ret < 0) {
+            return ret;
+        }
+
+        mMsg.attr_end(data);
+        return 0;
+   }
+
+protected:
+    virtual int handleResponse(WifiEvent& reply) {
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGE("Ignoring reply with cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("no vendor data in GetUsableChannel response; ignoring it");
+            return NL_SKIP;
+        }
+
+        int num_channels_to_copy = 0;
+
+        for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+            if (it.get_type() == SLSI_UC_ATTRIBUTE_NUM_CHANNELS) {
+                num_channels_to_copy = it.get_u32();
+                ALOGD("Got channel list number with %d channels", num_channels_to_copy);
+                if (num_channels_to_copy > mMaxNum)
+                    num_channels_to_copy = mMaxNum;
+                *mNumChannels = num_channels_to_copy;
+            } else if (it.get_type() == SLSI_UC_ATTRIBUTE_CHANNEL_LIST && num_channels_to_copy) {
+                memcpy(mChannels, it.get_data(), sizeof(wifi_usable_channel) * num_channels_to_copy);
+                // for (int i = 0 ; i < num_channels_to_copy ; i++)
+                //    ALOGD("Got channel list!!!!!!!!![%d] %d", i, channels[i].freq);
+            } else {
+                ALOGD("Ignoring invalid attribute type = %d, size = %d",
+                        it.get_type(), it.get_len());
+            }
+        }
+
+        return NL_OK;
+    }
+};
+
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group)
 {
     GetMulticastIdCommand cmd(handle, name, group);
@@ -1109,7 +1295,8 @@ static int wifi_get_multicast_id(wifi_handle handle, const char *name, const cha
 
 static bool is_wifi_interface(const char *name)
 {
-    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0) {
+    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0 && strncmp(name, "wifi", 4) != 0
+        && strncmp(name, "swlan", 5) != 0) {
         /* not a wifi interface; ignore it */
         return false;
     } else {
@@ -1255,6 +1442,39 @@ wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *count
 wifi_error wifi_set_latency_mode(wifi_interface_handle handle, wifi_latency_mode mode) {
     SetLatencyLockCommand cmd(handle, mode);
     return (wifi_error) cmd.requestResponse();
+}
+
+wifi_error wifi_set_subsystem_restart_handler(wifi_handle handle,
+                                              wifi_subsystem_restart_handler handler) {
+    ALOGD("Set Subsystem Restart Handler");
+    int id = 0;
+    SetSubsystemRestartHandlerCommand *cmd = new SetSubsystemRestartHandlerCommand(id, handle, handler);
+    wifi_register_cmd(handle, id, cmd);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+    }
+    return result;
+}
+
+wifi_error wifi_get_usable_channels(wifi_handle handle, uint32_t band, uint32_t iface_mode, uint32_t filter,
+                                    uint32_t max_num, uint32_t *num_channels, wifi_usable_channel *channels) {
+    wifi_interface_handle *ihandle = NULL;
+    int ihandle_num = 0;
+    wifi_get_ifaces(handle, &ihandle_num, &ihandle);
+    ALOGD("%s: band %d iface %d filter %d max_num %d", __FUNCTION__, band, iface_mode, filter, max_num);
+    if (ihandle_num <= 0)
+        return WIFI_ERROR_UNINITIALIZED;
+
+    if (iface_mode == SLSI_UC_ITERFACE_UNKNOWN || !(iface_mode & SLSI_UC_ITERFACE_SOFTAP))
+        return WIFI_ERROR_NOT_SUPPORTED;
+
+    GetUsableChannelsCommand command(ihandle[0], band, iface_mode, filter, max_num,
+                                     num_channels, channels);
+
+    int result = command.requestResponse();
+    ALOGD("%s: result %d", __FUNCTION__, result);
+    return (wifi_error)result;
 }
 /////////////////////////////////////////////////////////////////////////////
 

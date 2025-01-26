@@ -9,7 +9,7 @@
 #endif
 #define LOG_TAG  "WifiHAL"
 
-#include <utils/Log.h>
+#include <log/log.h>
 #include "nl80211_copy.h"
 #include "sync.h"
 
@@ -18,6 +18,16 @@
 #define DEFAULT_EVENT_CB_SIZE   (64)
 #define DEFAULT_CMD_SIZE        (64)
 #define DOT11_OUI_LEN             3
+#define WIFI_MAX_INFO_BUFFER_SIZE  41
+
+#ifdef SLSI_WIFI_HAL_NL_ATTR_CONFIG
+#define WIFI_HAL_ATTR_START 1
+#define NLA_F_NESTED        (1 << 15)
+#define NLA_F_NET_BYTEORDER (1 << 14)
+#define NLA_TYPE_MASK       ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
+#else
+#define WIFI_HAL_ATTR_START 0
+#endif
 
 typedef struct {
 	int num_bssid;
@@ -31,6 +41,8 @@ typedef struct {
  */
 
 const uint32_t GOOGLE_OUI = 0x001A11;
+const uint32_t SAMSUNG_OUI = 0x0000f0;
+
 /* TODO: define vendor OUI here */
 
 typedef enum {
@@ -157,6 +169,7 @@ typedef enum {
     SLSI_NL80211_VENDOR_SUBCMD_GET_ROAMING_CAPABILITIES,
     SLSI_NL80211_VENDOR_SUBCMD_SET_ROAMING_STATE,
     SLSI_NL80211_VENDOR_SUBCMD_SET_LATENCY_MODE,
+    SLSI_NL80211_VENDOR_SUBCMD_GET_USABLE_CHANNELS,
 
     SLSI_NL80211_VENDOR_SUBCMD_NAN_ENABLE = ANDROID_NL80211_SUBCMD_NAN_RANGE_START,
     SLSI_NL80211_VENDOR_SUBCMD_NAN_DISABLE,
@@ -196,7 +209,7 @@ typedef enum {
     WIFI_HANGED_EVENT,
     WIFI_EPNO_EVENT,
     WIFI_HOTSPOT_MATCH,
-    WIFI_RSSI_REPORT_EVENT,
+    WIFI_RSSI_REPORT_EVENT = 10,
     ENHANCE_LOGGER_RING_EVENT,
     ENHANCE_LOGGER_MEM_DUMP_EVENT,
     /* NAN events start */
@@ -207,7 +220,7 @@ typedef enum {
     SLSI_NAN_EVENT_SUBSCRIBE_TERMINATED,
     SLSI_NAN_EVENT_FOLLOWUP,
     SLSI_NAN_EVENT_DISCOVERY_ENGINE,
-    SLSI_NAN_EVENT_DISABLED,
+    SLSI_NAN_EVENT_DISABLED = 20,
     SLSI_RTT_RESULT_EVENT,
     SLSI_RTT_EVENT_COMPLETE,
     WIFI_ACS_EVENT,            /* Handled by supplicant. not in Wifi-HAL */
@@ -217,7 +230,10 @@ typedef enum {
     /* NAN DATA PATH EVENTS*/
     SLSI_NAN_EVENT_NDP_REQ,
     SLSI_NAN_EVENT_NDP_CFM,
-    SLSI_NAN_EVENT_NDP_END
+    SLSI_NAN_EVENT_NDP_END,
+    WIFI_SUBSYSTEM_RESTART_EVENT = 33,
+    SLSI_NL80211_VENDOR_NAN_INTERFACE_CREATED = 39,
+    SLSI_NL80211_VENDOR_NAN_INTERFACE_DELETED
 
 } WIFI_EVENT;
 
@@ -240,7 +256,7 @@ typedef struct {
 
 typedef struct {
     wifi_handle handle;                             // handle to wifi data
-    char name[8+1];                                 // interface name + trailing null
+    char name[IFNAMSIZ+1];                                 // interface name + trailing null
     int  id;                                        // id to use when talking to driver
 } interface_info;
 
@@ -250,6 +266,7 @@ typedef struct {
     struct nl_sock *event_sock;                     // event socket object
     int nl80211_family_id;                          // family id for 80211 driver
     int cleanup_socks[2];                           // sockets used to implement wifi_cleanup
+    int ioctl_sock;
 
     bool in_event_loop;                             // Indicates that event loop is active
     bool clean_up;                                  // Indication to clean up the socket
@@ -297,6 +314,14 @@ wifi_interface_handle getIfaceHandle(interface_info *info);
 void wifi_set_nan_cmd(wifi_handle handle, WifiCommand *cmd);
 void wifi_reset_nan_cmd(wifi_handle handle);
 WifiCommand *wifi_get_nan_cmd(wifi_handle handle);
+void wifi_log_hex2string(const u8 *hex_buffer, int length, char *hex_string);
+void wifi_log_hex_buffer_debug(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len);
+void wifi_log_hex_buffer_info(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len);
+void wifi_log_hex_buffer_warn(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len);
+void wifi_log_hex_buffer_error(const char *pre_str, const char *post_str, const u8 *hex_buffer, int hex_len);
+void set_reset_in_progress(uint8_t value);
+uint8_t is_reset_in_progress();
+
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

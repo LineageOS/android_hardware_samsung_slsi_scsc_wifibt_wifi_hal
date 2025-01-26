@@ -20,7 +20,7 @@
 
 #define LOG_TAG  "WifiHAL"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
@@ -32,7 +32,8 @@
 enum roam_attributes {
     SLSI_ATTR_ROAM_CAPABILITY_BLACKLIST_SIZE,
     SLSI_ATTR_ROAM_CAPABILITY_WHITELIST_SIZE,
-    SLSI_ATTR_ROAM_STATE
+    SLSI_ATTR_ROAM_STATE,
+    SLSI_ATTR_ROAM_MAX
 };
 
 class BssidBlacklistCommand : public WifiCommand
@@ -56,10 +57,12 @@ public:
             return result;
         }
 
-        for (int i = 0; i < mParams->num_bssid; i++) {
-            result = request.put_addr(GSCAN_ATTRIBUTE_BLACKLIST_BSSID, mParams->bssids[i]);
-            if (result < 0) {
-                return result;
+        if (mParams->num_bssid > 0) {
+            for (int i = 0; i < mParams->num_bssid; i++) {
+                result = request.put_addr(GSCAN_ATTRIBUTE_BLACKLIST_BSSID, mParams->bssids[i]);
+                if (result < 0) {
+                    return result;
+                }
             }
         }
         request.attr_end(data);
@@ -205,13 +208,14 @@ wifi_error wifi_configure_roaming(wifi_interface_handle iface, wifi_roaming_conf
     if (!roaming_config) {
         ALOGE("%s: Invalid Buffer provided. Exit", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;
-   }
+    }
 
     /* Generate request id randomly*/
-   requestId = get_requestid();
-   bssid_params.num_bssid = roaming_config->num_blacklist_bssid;
+    requestId = get_requestid();
+    bssid_params.num_bssid = roaming_config->num_blacklist_bssid;
 
-   memcpy(bssid_params.bssids, roaming_config->blacklist_bssid,
+
+    memcpy(bssid_params.bssids, roaming_config->blacklist_bssid,
            (bssid_params.num_bssid * sizeof(mac_addr)));
 
     ret = wifi_set_bssid_blacklist(requestId, iface, bssid_params);
